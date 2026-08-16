@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Revival Launcher — Console</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d0d0d;
+      color: #d4d4d4;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      user-select: text;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      background: #111;
+      border-bottom: 1px solid #222;
+      flex-shrink: 0;
+    }
+
+    #toolbar .title {
+      font-size: 11px;
+      color: #888;
+      flex: 1;
+      letter-spacing: 0.03em;
+    }
+
+    #toolbar .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3a3;
+      box-shadow: 0 0 6px #3a3a;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    #toolbar .status-dot.dead { background: #666; box-shadow: none; }
+    #toolbar .status-dot.loading { background: #ca3; box-shadow: 0 0 6px #ca3a; }
+
+    #toolbar .status-text {
+      font-size: 10px;
+      color: #666;
+    }
+
+    button.toolbar-btn {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      color: #aaa;
+      font-size: 10px;
+      padding: 3px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    button.toolbar-btn:hover { background: #2a2a2a; color: #eee; }
+
+    /* ── Progress bar ── */
+    #progress-wrap {
+      height: 3px;
+      background: #1a1a1a;
+      flex-shrink: 0;
+      display: none;
+    }
+    #progress-wrap.visible { display: block; }
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #81354E, #F9E5D6);
+      width: 0%;
+      transition: width 0.2s;
+    }
+
+    /* ── Log output ── */
+    #log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+
+    /* Scrollbar */
+    #log::-webkit-scrollbar { width: 6px; }
+    #log::-webkit-scrollbar-track { background: #111; }
+    #log::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    #log::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    /* Line colouring */
+    .line { display: block; padding: 0.5px 0; }
+    .line.debug  { color: #666; }
+    .line.warn   { color: #ca3; }
+    .line.error  { color: #e55; }
+    .line.info   { color: #5af; }
+    .line.exit   { color: #888; font-style: italic; margin-top: 6px; }
+    .line.normal { color: #d4d4d4; }
+
+    /* ── Filter bar ── */
+    #filter-wrap {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 5px 12px;
+      background: #111;
+      border-top: 1px solid #1e1e1e;
+      flex-shrink: 0;
+    }
+    #filter-input {
+      flex: 1;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      padding: 4px 8px;
+      color: #ccc;
+      font-size: 11px;
+      font-family: inherit;
+      outline: none;
+    }
+    #filter-input:focus { border-color: #444; }
+    #line-count {
+      font-size: 10px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <div id="status-dot" class="status-dot loading"></div>
+    <span class="title">Revival Console</span>
+    <span id="status-text" class="status-text">Starting…</span>
+    <button class="toolbar-btn" onclick="clearLogs()">Clear</button>
+    <button class="toolbar-btn" onclick="copyAll()">Copy All</button>
+    <button class="toolbar-btn" id="scroll-btn" onclick="toggleAutoScroll()">⬇ Auto-scroll ON</button>
+  </div>
+
+  <!-- Download progress bar -->
+  <div id="progress-wrap">
+    <div id="progress-bar"></div>
+  </div>
+
+  <!-- Log content -->
+  <div id="log"></div>
+
+  <!-- Filter bar -->
+  <div id="filter-wrap">
+    <input id="filter-input" type="text" placeholder="Filter logs…" oninput="applyFilter()" />
+    <span id="line-count">0 lines</span>
+  </div>
+
+  <script>
+    const logEl    = document.getElementById('log');
+    const dotEl    = document.getElementById('status-dot');
+    const statusEl = document.getElementById('status-text');
+    const progWrap = document.getElementById('progress-wrap');
+    const progBar  = document.getElementById('progress-bar');
+    const filterEl = document.getElementById('filter-input');
+    const lineCount = document.getElementById('line-count');
+
+    let autoScroll = true;
+    let allLines = [];  // raw text of every line
+
+    function classifyLine(text) {
+      const t = text.toLowerCase();
+      if (t.includes('[debug]'))                       return 'debug';
+      if (t.includes('warn'))                          return 'warn';
+      if (t.includes('error') || t.includes('fatal')) return 'error';
+      if (t.includes('[info]'))                        return 'info';
+      if (t.startsWith('---'))                         return 'exit';
+      return 'normal';
+    }
+
+    function appendLine(text) {
+      const filter = filterEl.value.trim().toLowerCase();
+      const lines = text.split('\n').filter(l => l.length > 0);
+      lines.forEach(l => {
+        allLines.push(l);
+        if (!filter || l.toLowerCase().includes(filter)) {
+          const span = document.createElement('span');
+          span.className = 'line ' + classifyLine(l);
+          span.textContent = l;
+          logEl.appendChild(span);
+          logEl.appendChild(document.createTextNode('\n'));
+        }
+      });
+      lineCount.textContent = allLines.length + ' lines';
+      if (autoScroll) logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function clearLogs() {
+      allLines = [];
+      logEl.innerHTML = '';
+      lineCount.textContent = '0 lines';
+    }
+
+    function applyFilter() {
+      const filter = filterEl.value.trim().toLowerCase();
+      logEl.innerHTML = '';
+      allLines.forEach(l => {
+        if (!filter || l.toLowerCase().includes(filter)) {
+          const span = document.createElement('span');
+          span.className = 'line ' + classifyLine(l);
+          span.textContent = l;
+          logEl.appendChild(span);
+          logEl.appendChild(document.createTextNode('\n'));
+        }
+      });
+      if (autoScroll) logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function copyAll() {
+      navigator.clipboard.writeText(allLines.join('\n'));
+    }
+
+    function toggleAutoScroll() {
+      autoScroll = !autoScroll;
+      document.getElementById('scroll-btn').textContent = autoScroll ? '⬇ Auto-scroll ON' : '⬇ Auto-scroll OFF';
+    }
+
+    // IPC listeners
+    window.logAPI.onLine((line) => {
+      dotEl.className = 'status-dot';
+      statusEl.textContent = 'Running';
+      appendLine(line);
+    });
+
+    window.logAPI.onClear(() => {
+      clearLogs();
+      dotEl.className = 'status-dot loading';
+      statusEl.textContent = 'Starting…';
+    });
+
+    window.logAPI.onProgress((evt) => {
+      if (evt.type === 'download-status') {
+        const pct = evt.total ? Math.round((evt.current / evt.total) * 100) : 0;
+        progWrap.classList.add('visible');
+        progBar.style.width = pct + '%';
+        statusEl.textContent = `Downloading assets… ${pct}%`;
+        if (pct >= 100) {
+          setTimeout(() => { progWrap.classList.remove('visible'); }, 1200);
+        }
+      }
+    });
+
+    // Detect exit line
+    const observer = new MutationObserver(() => {
+      if (allLines.some(l => l.startsWith('---'))) {
+        dotEl.className = 'status-dot dead';
+        statusEl.textContent = 'Exited';
+      }
+    });
+    observer.observe(logEl, { childList: true });
+  </script>
+</body>
+</html>

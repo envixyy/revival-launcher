@@ -1,0 +1,71 @@
+{
+  "name": "revival-launcher",
+  "description": "Revival Launcher for Minecraft instances and modpacks",
+  "author": "Revival Launcher",
+  "private": true,
+  "version": "0.1.1",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "dist": "npm run build && electron-builder --win msi nsis --publish never",
+    "dist:publish": "npm run build && electron-builder --win msi nsis --publish always"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^1.5.3",
+    "adm-zip": "^0.6.0",
+    "electron-updater": "^6.7.2",
+    "lucide-react": "^0.300.0",
+    "minecraft-launcher-core": "^3.2.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "build": {
+    "appId": "com.revival.launcher",
+    "productName": "Revival Launcher",
+    "artifactName": "Revival-Launcher-${version}-${arch}.${ext}",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "${env.GH_OWNER}",
+        "repo": "${env.GH_REPO}",
+        "releaseType": "release"
+      }
+    ],
+    "win": {
+      "target": [
+        "msi",
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "msi": {
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false
+    }
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.8",
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "electron": "^30.0.0",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.0.2",
+    "vite": "^5.0.8"
+  }
+}

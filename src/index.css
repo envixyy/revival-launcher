@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --revival-dark: #111216;
+  --revival-card: #1c1d22;
+  --revival-accent: #facc15;
+  --revival-grad-end: #eab308;
+  --revival-text: #ffffff;
+  --revival-sidebar: #0e0f13;
+  --revival-panel: #18191f;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #111216;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .glass-card {
+    background: rgba(28, 29, 34, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+  }
+
+  .glass-card-hover {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-card-hover:hover {
+    transform: translateY(-2px) scale(1.01);
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 12px 40px -8px rgba(16, 185, 129, 0.2);
+  }
+
+  .glow-button {
+    transition: all 0.2s ease-in-out;
+  }
+  .glow-button:hover {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+    transform: scale(1.02);
+  }
+
+  /* Thin custom scrollbar for content areas */
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #2c2e38;
+    border-radius: 9999px;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
