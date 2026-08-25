@@ -570,27 +570,30 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {[1, 2].map(n => <div key={n} className="h-20 bg-[#16171d] border border-[#2c2e38] rounded-2xl animate-pulse" />)}
+            {[1, 2, 3, 4].map(n => (
+              <div key={n} className="h-20 rounded-2xl animate-shimmer border border-[#2c2e38]"
+                style={{ animationDelay: `${n * 80}ms` }} />
+            ))}
           </div>
         ) : instances.length === 0 ? (
-          <div className="bg-[#16171d]/60 border border-[#2c2e38] rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#20222a] border border-[#343744] flex items-center justify-center text-gray-400">
-              <Package size={26} />
+          <div className="bg-[#15161c] border border-[#2c2e38] rounded-2xl p-10 text-center flex flex-col items-center justify-center gap-4 animate-fade-in">
+            <div className="w-16 h-16 rounded-3xl bg-[#1c1d24] border border-[#343744] flex items-center justify-center text-gray-500 animate-float">
+              <Package size={30} />
             </div>
             <div>
-              <p className="font-extrabold text-sm text-white">No instances installed yet</p>
-              <p className="text-xs text-gray-400 mt-0.5">Create your first custom instance or import a pack from Modrinth/CurseForge!</p>
+              <p className="font-extrabold text-sm text-white">No instances yet</p>
+              <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">Create your first instance or import a modpack from Modrinth or CurseForge!</p>
             </div>
-            <div className="flex gap-2 mt-1 w-full max-w-xs">
+            <div className="flex gap-2 w-full max-w-xs">
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="flex-1 py-2.5 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-xs rounded-xl transition-all shadow-md"
+                className="flex-1 py-2.5 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-xs rounded-xl transition-all shadow-md shadow-yellow-500/20 active:scale-95 flex items-center justify-center gap-1.5"
               >
-                Create New Instance
+                <Plus size={13} /> New Instance
               </button>
               <button
                 onClick={() => setShowImportModal(true)}
-                className="flex-1 py-2.5 bg-[#20222a] border border-[#2c2e38] text-gray-300 font-bold text-xs hover:border-[#facc15]/40 hover:text-white transition-all rounded-xl"
+                className="flex-1 py-2.5 bg-[#1c1d24] border border-[#2c2e38] text-gray-300 font-bold text-xs hover:border-[#facc15]/40 hover:text-white transition-all rounded-xl active:scale-95"
               >
                 Import Pack
               </button>
@@ -603,11 +606,18 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
               return (
                 <div
                   key={idx}
-                  className={`border rounded-2xl p-3.5 flex items-center justify-between transition-all group cursor-pointer shadow-md ${
+                  className={`border rounded-2xl p-3.5 flex items-center justify-between group cursor-pointer shadow-md animate-fade-in ${
                     isRunning
-                      ? 'bg-[#facc15]/5 border-[#facc15]/40 ring-1 ring-[#facc15]/20'
-                      : 'bg-[#15161c] border-[#2c2e38] hover:border-[#facc15]/50 hover:bg-[#1a1b22]'
+                      ? 'bg-[#facc15]/5 border-[#facc15]/30'
+                      : 'bg-[#15161c] border-[#2c2e38] hover:border-[#facc15]/50 hover:bg-[#1a1c24]'
                   }`}
+                  style={{
+                    animationDelay: `${idx * 60}ms`,
+                    transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                    ...(isRunning ? { boxShadow: '0 0 24px rgba(250,204,21,0.08), 0 4px 16px rgba(0,0,0,0.3)' } : {}),
+                  }}
+                  onMouseEnter={e => { if (!isRunning) (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; }}
                   onClick={(e) => {
                     const t = e.target as HTMLElement;
                     if (t.closest('button') || t.closest('[role="menu"]')) return;
@@ -616,7 +626,9 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative flex-shrink-0">
-                      <div className="w-11 h-11 rounded-2xl bg-[#20222a] border border-[#343744] flex items-center justify-center text-xl shadow-md group-hover:scale-105 transition-transform overflow-hidden">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-transform group-hover:scale-105 overflow-hidden border ${
+                        isRunning ? 'bg-[#facc15]/10 border-[#facc15]/30' : 'bg-[#20222a] border-[#343744]'
+                      }`}>
                         {inst.icon ? (
                           <img src={inst.icon} alt={inst.name} className="w-full h-full object-cover" />
                         ) : (
@@ -624,20 +636,21 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
                         )}
                       </div>
                       {isRunning && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#facc15] ring-2 ring-[#15161c] animate-pulse" />
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#facc15] ring-2 ring-[#15161c] animate-pulse-glow" />
                       )}
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-black text-sm text-white truncate group-hover:text-[#facc15] transition-colors">{inst.name}</p>
                         {isRunning && (
-                          <span className="text-[9px] font-black text-[#facc15] bg-[#facc15]/10 px-1.5 py-0.2 rounded border border-[#facc15]/20">
-                            RUNNING
+                          <span className="text-[9px] font-black text-[#facc15] bg-[#facc15]/10 px-2 py-0.5 rounded-full border border-[#facc15]/25 animate-fade-in flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#facc15] inline-block animate-status-pulse" />
+                            LIVE
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
+                      <p className="text-[11px] text-gray-500 mt-0.5 font-medium">
                         {inst.mc_version} · <span className="text-gray-300 font-bold">{inst.loader || 'Vanilla'}</span> · {inst.last_played ? new Date(inst.last_played).toLocaleDateString() : 'Never played'}
                       </p>
                     </div>
@@ -661,7 +674,7 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
                     ) : (
                       <button
                         onClick={() => handleLaunch(inst.name)}
-                        className="p-2.5 rounded-xl bg-[#facc15] hover:bg-yellow-300 text-black font-black transition-all flex items-center justify-center shadow-md active:scale-95"
+                        className="p-2.5 rounded-xl bg-[#facc15] hover:bg-yellow-300 text-black font-black transition-all flex items-center justify-center shadow-md shadow-yellow-500/20 active:scale-90 hover:scale-110"
                         title="Launch Instance"
                       >
                         <Play size={13} fill="currentColor" />

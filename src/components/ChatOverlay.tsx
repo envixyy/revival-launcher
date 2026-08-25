@@ -135,91 +135,74 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
   let lastDateStr = '';
 
   return (
-    <div className="fixed bottom-4 right-[270px] w-88 h-[460px] bg-[#14151b] border border-[#facc15]/30 rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-fade-in">
+    <div className="fixed bottom-4 right-[270px] w-88 h-[460px] bg-[#0e0f14] border border-[#facc15]/25 rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-scale-up"
+      style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(250,204,21,0.1)' }}
+    >
       {/* Header */}
-      <div className="bg-[#0c0d11] border-b border-[#2c2e38] px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+      <div className="bg-[#0a0b0f] border-b border-[#1e2028] px-4 py-2.5 flex items-center justify-between flex-shrink-0">
         <div
-          className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 cursor-pointer group"
           onClick={() => setSelectedUserForProfile({ username: friend.username, displayName: friend.displayName, avatar: friendAvatarFinal })}
-          title="Click to view profile"
         >
-          <UserAvatar
-            avatarKeyOrUrl={friendAvatarFinal}
-            name={friend.displayName}
-            size="sm"
-            isSubscribed={friendSub.active}
-          />
+          <div className="relative">
+            <UserAvatar avatarKeyOrUrl={friendAvatarFinal} name={friend.displayName} size="sm" isSubscribed={friendSub.active} />
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0a0b0f] bg-[#facc15] animate-status-pulse" />
+          </div>
           <div>
             <div className="flex items-center gap-1.5">
               {friendRoleTag && (
-                <span className={`text-[10px] font-black uppercase ${friendRoleTag.colorClass}`}>
-                  {friendRoleTag.tag}
-                </span>
+                <span className={`text-[9px] font-black uppercase ${friendRoleTag.colorClass}`}>{friendRoleTag.tag}</span>
               )}
-              <h4 className="font-black text-xs text-white leading-none">{friend.displayName}</h4>
-              {friendBadges[0] && (
-                <BadgePill badge={friendBadges[0]} size="sm" />
-              )}
+              <h4 className="font-black text-xs text-white group-hover:text-[#facc15] transition-colors leading-none">{friend.displayName}</h4>
+              {friendBadges[0] && <BadgePill badge={friendBadges[0]} size="sm" />}
             </div>
-            <p className="text-[9px] text-[#facc15] mt-0.5 font-bold">@{friend.username} · Online</p>
+            <p className="text-[9px] text-[#facc15]/70 mt-0.5 font-bold">@{friend.username} · Online</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setSelectedUserForProfile({ username: friend.username, displayName: friend.displayName, avatar: friendAvatarFinal })}
-            title="View Profile"
-            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-400 hover:text-[#facc15] transition-colors"
-          >
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => setSelectedUserForProfile({ username: friend.username, displayName: friend.displayName, avatar: friendAvatarFinal })}
+            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500 hover:text-[#facc15] transition-all active:scale-90" title="View Profile">
             <User size={13} />
           </button>
-          <button
-            onClick={handleClear}
-            title="Clear conversation"
-            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
-          >
+          <button onClick={handleClear}
+            className="p-1.5 hover:bg-red-500/10 rounded-lg text-gray-500 hover:text-red-400 transition-all active:scale-90" title="Clear conversation">
             <Trash2 size={13} />
           </button>
-          <button onClick={onClose} className="p-1.5 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
+          <button onClick={onClose}
+            className="p-1.5 hover:bg-white/10 rounded-lg text-gray-500 hover:text-white transition-all active:scale-90">
             <X size={14} />
           </button>
         </div>
       </div>
 
       {/* Messages list */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 space-y-3 bg-[#0e0f14]/80">
+      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 space-y-3 bg-[#090a0d]">
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center gap-2 text-center py-6">
-            <UserAvatar
-              avatarKeyOrUrl={friendAvatarFinal}
-              name={friend.displayName}
-              size="lg"
-              isSubscribed={friendSub.active}
-            />
-            <div className="flex items-center gap-1.5">
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-center py-6 animate-fade-in">
+            <div className="relative">
+              <UserAvatar avatarKeyOrUrl={friendAvatarFinal} name={friend.displayName} size="lg" isSubscribed={friendSub.active} />
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full ring-2 ring-[#090a0d] bg-[#facc15] animate-pulse-glow" />
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap justify-center">
               {friendRoleTag && (
-                <span className={`text-[10px] font-black uppercase ${friendRoleTag.colorClass}`}>
-                  {friendRoleTag.tag}
-                </span>
+                <span className={`text-[10px] font-black uppercase ${friendRoleTag.colorClass}`}>{friendRoleTag.tag}</span>
               )}
               <p className="text-xs font-black text-white">{friend.displayName}</p>
-              {friendBadges[0] && (
-                <BadgePill badge={friendBadges[0]} size="sm" />
-              )}
+              {friendBadges[0] && <BadgePill badge={friendBadges[0]} size="sm" />}
             </div>
-            <p className="text-[10px] text-gray-400 max-w-[200px] leading-relaxed">
-              This is the start of your direct conversation. Say hello!
+            <p className="text-[10px] text-gray-500 max-w-[180px] leading-relaxed font-medium">
+              Start of your conversation with {friend.displayName}. Say hi! 👋
             </p>
           </div>
         )}
 
-        {messages.map((msg) => {
+        {messages.map((msg, idx) => {
           const dateStr = fmtDate(msg.timestamp);
           const showDate = dateStr !== lastDateStr;
           lastDateStr = dateStr;
 
-          const isMe = msg.sender.toLowerCase() === myUsername.toLowerCase()
-            || msg.sender === 'me';
+          const isMe = msg.sender.toLowerCase() === myUsername.toLowerCase() || msg.sender === 'me';
           const senderBadges = isMe ? myBadges : friendBadges;
           const senderAvatar = isMe ? myAvatarFinal : friendAvatarFinal;
           const senderName = isMe ? myDisplayName : friend.displayName;
@@ -227,59 +210,50 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
           const isSenderSubscribed = isMe ? mySub.active : friendSub.active;
           const senderRoleTag = isMe ? myRoleTag : friendRoleTag;
 
+          const delay = Math.min(idx, 8) * 30;
+
           return (
-            <div key={msg.id}>
+            <div key={msg.id} style={{ animationDelay: `${delay}ms` }}>
               {showDate && (
                 <div className="flex items-center gap-2 my-3">
-                  <div className="flex-1 h-px bg-[#2c2e38]" />
-                  <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">{dateStr}</span>
-                  <div className="flex-1 h-px bg-[#2c2e38]" />
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[#2c2e38]" />
+                  <span className="text-[8px] font-black text-gray-600 uppercase tracking-widest">{dateStr}</span>
+                  <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[#2c2e38]" />
                 </div>
               )}
 
-              {/* Message Row with Profile Picture next to bubble */}
-              <div className={`flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                {/* Clickable Profile Picture */}
+              <div className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}
+                style={{ animationDelay: `${delay}ms` }}>
                 <button
                   type="button"
                   onClick={() => setSelectedUserForProfile({ username: senderUsername, displayName: senderName, avatar: senderAvatar })}
-                  className="flex-shrink-0 hover:scale-105 transition-transform mt-0.5"
+                  className="flex-shrink-0 hover:scale-110 transition-transform active:scale-90"
                   title={`View @${senderUsername}'s profile`}
                 >
-                  <UserAvatar
-                    avatarKeyOrUrl={senderAvatar}
-                    name={senderName}
-                    size="sm"
-                    isSubscribed={isSenderSubscribed}
-                  />
+                  <UserAvatar avatarKeyOrUrl={senderAvatar} name={senderName} size="sm" isSubscribed={isSenderSubscribed} />
                 </button>
 
-                {/* Message Content Container */}
-                <div className={`flex flex-col max-w-[78%] ${isMe ? 'items-end' : 'items-start'}`}>
-                  {/* Sender Header */}
-                  <div className="flex items-center gap-1.5 mb-1 px-0.5">
-                    {senderRoleTag && (
-                      <span className={`text-[8.5px] font-black uppercase ${senderRoleTag.colorClass}`}>
-                        {senderRoleTag.tag}
-                      </span>
+                <div className={`flex flex-col max-w-[76%] ${isMe ? 'items-end' : 'items-start'}`}>
+                  <div className="flex items-center gap-1 mb-1 px-0.5">
+                    {!isMe && senderRoleTag && (
+                      <span className={`text-[8px] font-black uppercase ${senderRoleTag.colorClass}`}>{senderRoleTag.tag}</span>
                     )}
-                    <span className="text-[9px] font-black text-gray-300">
+                    <span className="text-[9px] font-black text-gray-400">
                       {isMe ? 'You' : senderName}
                     </span>
-                    {senderBadges[0] && (
-                      <BadgePill badge={senderBadges[0]} size="sm" />
-                    )}
+                    {senderBadges[0] && <BadgePill badge={senderBadges[0]} size="sm" />}
                   </div>
 
-                  {/* Message Bubble */}
-                  <div className={`px-3 py-2 rounded-2xl text-[11px] font-medium leading-relaxed shadow-md break-words ${
+                  <div className={`px-3 py-2 text-[11.5px] font-medium leading-relaxed shadow-lg break-words ${
                     isMe
-                      ? 'bg-[#facc15] text-black font-semibold rounded-tr-xs'
-                      : 'bg-[#1c1e27] border border-[#2c2e38] text-gray-100 rounded-tl-xs'
-                  }`}>
+                      ? 'bg-[#facc15] text-black font-semibold rounded-2xl rounded-br-md'
+                      : 'bg-[#1a1c24] border border-[#2c2e38] text-gray-100 rounded-2xl rounded-bl-md'
+                  }`}
+                    style={isMe ? { boxShadow: '0 4px 16px rgba(250,204,21,0.2)' } : {}}
+                  >
                     {msg.text}
                   </div>
-                  <span className="text-[8px] text-gray-500 mt-0.5 px-1">{fmt(msg.timestamp)}</span>
+                  <span className="text-[8px] text-gray-600 mt-1 px-1">{fmt(msg.timestamp)}</span>
                 </div>
               </div>
             </div>
@@ -289,25 +263,25 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
       </div>
 
       {/* Input Form */}
-      <form onSubmit={handleSend} className="p-2.5 bg-[#0c0d11] border-t border-[#2c2e38] flex gap-2 flex-shrink-0">
+      <form onSubmit={handleSend} className="p-2.5 bg-[#0a0b0f] border-t border-[#1e2028] flex gap-2 flex-shrink-0 items-center">
         <input
           ref={inputRef}
           type="text"
           value={inputText}
           onChange={e => setInputText(e.target.value)}
           placeholder={`Message ${friend.displayName}...`}
-          className="flex-1 bg-[#181920] border border-[#2c2e38] rounded-xl px-3 py-2 text-[11px] text-white outline-none focus:border-[#facc15] transition-all font-medium"
+          className="flex-1 bg-[#14151c] border border-[#2c2e38] rounded-xl px-3 py-2 text-[11.5px] text-white outline-none focus:border-[#facc15]/60 focus:bg-[#1a1b24] transition-all font-medium placeholder:text-gray-600"
+          maxLength={500}
         />
         <button
           type="submit"
           disabled={!inputText.trim()}
-          className="p-2 bg-[#facc15] text-black rounded-xl hover:bg-yellow-300 transition-all flex-shrink-0 disabled:opacity-40 shadow-sm active:scale-95"
+          className="p-2.5 bg-[#facc15] text-black rounded-xl hover:bg-yellow-300 transition-all flex-shrink-0 disabled:opacity-30 shadow-md shadow-yellow-500/20 active:scale-90 hover:scale-105"
         >
-          <Send size={13} />
+          <Send size={14} />
         </button>
       </form>
 
-      {/* User Profile Modal when clicking profile icon or header */}
       {selectedUserForProfile && (
         <UserProfileModal
           username={selectedUserForProfile.username}

@@ -1,4 +1,4 @@
-import { Minus, Square, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import logoImg from '../assets/logo.png';
 
 interface TitleBarProps {
@@ -26,78 +26,117 @@ declare global {
 export function TitleBar({ currentPage, canGoBack, onBack, instancesRunning }: TitleBarProps) {
   return (
     <div
-      className="flex items-center h-10 px-3 select-none flex-shrink-0 bg-[#0e0f13] border-b border-[#1e2028]"
-      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      className="flex items-center h-10 px-3 select-none flex-shrink-0 bg-[#0a0b0e] border-b border-[#1a1b22]"
+      style={{
+        WebkitAppRegion: 'drag',
+        boxShadow: '0 1px 0 rgba(250,204,21,0.06), 0 2px 12px rgba(0,0,0,0.3)',
+      } as React.CSSProperties}
     >
+      {/* macOS Traffic Light Controls */}
+      <div
+        className="flex items-center gap-1.5 mr-4 group"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        {/* Close — Red */}
+        <button
+          onClick={() => window.electronAPI?.close?.()}
+          className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] border border-[#e0443e]/60 transition-all duration-150 hover:scale-110 active:scale-90 flex items-center justify-center"
+          title="Close"
+        >
+          {/* X mark on hover — shown via group */}
+          <svg
+            className="w-1.5 h-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            viewBox="0 0 8 8" fill="none"
+          >
+            <path d="M1 1l6 6M7 1L1 7" stroke="#5c0000" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+
+        {/* Minimize — Yellow */}
+        <button
+          onClick={() => window.electronAPI?.minimize?.()}
+          className="w-3 h-3 rounded-full bg-[#ffbd2e] hover:bg-[#ffab00] border border-[#dfa013]/60 transition-all duration-150 hover:scale-110 active:scale-90 flex items-center justify-center"
+          title="Minimize"
+        >
+          <svg
+            className="w-1.5 h-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            viewBox="0 0 8 8" fill="none"
+          >
+            <path d="M1 4h6" stroke="#5c3800" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+
+        {/* Maximize — Green */}
+        <button
+          onClick={() => window.electronAPI?.maximize?.()}
+          className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#1aae30] border border-[#18992b]/60 transition-all duration-150 hover:scale-110 active:scale-90 flex items-center justify-center"
+          title="Maximize"
+        >
+          <svg
+            className="w-1.5 h-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            viewBox="0 0 8 8" fill="none"
+          >
+            <path d="M1 4h6M4 1v6" stroke="#003300" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+      </div>
+
       {/* Logo + App Name */}
-      <div className="flex items-center gap-2 mr-4" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <img src={logoImg} alt="Revival" className="w-5 h-5 object-contain" />
-        <span className="text-[13px] font-extrabold text-white tracking-tight">revival</span>
-        <span className="text-[13px] font-extrabold text-[#facc15] tracking-tight">launcher</span>
+      <div
+        className="flex items-center gap-2 mr-4"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        <img src={logoImg} alt="Revival" className="w-4 h-4 object-contain opacity-90" />
+        <span className="text-[12px] font-extrabold text-white tracking-tight">revival</span>
+        <span className="text-[12px] font-extrabold text-[#facc15] tracking-tight">launcher</span>
+        <span className="text-[9px] font-black text-gray-600 bg-[#1a1b22] border border-[#2c2e38] px-1.5 py-0.5 rounded-md tracking-widest uppercase">v0.3.0</span>
       </div>
 
       {/* Nav Arrows */}
       <div
-        className="flex items-center gap-1 mr-3"
+        className="flex items-center gap-0.5 mr-3"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
           onClick={onBack}
           disabled={!canGoBack}
-          className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-[#1c1d24] disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-90"
         >
           <ChevronLeft size={14} />
         </button>
         <button
           disabled
-          className="w-6 h-6 flex items-center justify-center rounded text-gray-400 opacity-30 cursor-not-allowed"
+          className="w-6 h-6 flex items-center justify-center rounded-lg text-gray-500 opacity-25 cursor-not-allowed"
         >
           <ChevronRight size={14} />
         </button>
       </div>
 
       {/* Current Page Breadcrumb */}
-      <span className="text-[13px] font-bold text-white">{currentPage}</span>
+      <span className="text-[12px] font-bold text-gray-300 tracking-tight">{currentPage}</span>
 
-      {/* Spacer — drag area */}
+      {/* Drag spacer */}
       <div className="flex-1" />
 
-      {/* Status Pill */}
+      {/* Running Instances Pill */}
       <div
-        className="flex items-center gap-1.5 mr-4"
+        className="flex items-center gap-1.5 mr-2"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
-        <div className={`w-2 h-2 rounded-full ${instancesRunning > 0 ? 'bg-[#facc15]' : 'bg-gray-500'}`} />
-        <span className="text-[11px] font-semibold text-gray-400">
-          {instancesRunning > 0 ? `${instancesRunning} instance${instancesRunning > 1 ? 's' : ''} running` : 'No instances running'}
-        </span>
-      </div>
-
-      {/* Window Controls */}
-      <div
-        className="flex items-center gap-1"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <button
-          onClick={() => window.electronAPI?.minimize?.()}
-          className="w-8 h-8 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-white/10 transition-all"
-        >
-          <Minus size={13} />
-        </button>
-        <button
-          onClick={() => window.electronAPI?.maximize?.()}
-          className="w-8 h-8 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-white/10 transition-all"
-        >
-          <Square size={11} />
-        </button>
-        <button
-          onClick={() => window.electronAPI?.close?.()}
-          className="w-8 h-8 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-red-500 transition-all"
-        >
-          <X size={13} />
-        </button>
+        {instancesRunning > 0 ? (
+          <div className="flex items-center gap-1.5 bg-[#facc15]/10 border border-[#facc15]/25 px-2.5 py-1 rounded-full animate-fade-in">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#facc15] animate-status-pulse" />
+            <span className="text-[10px] font-black text-[#facc15] tracking-wide">
+              {instancesRunning} RUNNING
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full">
+            <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+            <span className="text-[10px] font-semibold text-gray-600">idle</span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
