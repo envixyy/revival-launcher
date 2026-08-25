@@ -1026,6 +1026,49 @@ ipcMain.handle('delete_instance', async (event, { name }) => {
   return { ok: true };
 });
 
+ipcMain.handle('list_worlds', async (event, { name }) => {
+  const savesDir = path.join(getInstancePath(name), 'saves');
+  if (!fs.existsSync(savesDir)) return [];
+  const worlds = [];
+  try {
+    const entries = fs.readdirSync(savesDir);
+    for (const folder of entries) {
+      const worldPath = path.join(savesDir, folder);
+      if (fs.statSync(worldPath).isDirectory()) {
+        const iconPath = path.join(worldPath, 'icon.png');
+        let iconData = null;
+        if (fs.existsSync(iconPath)) {
+          try {
+            const buf = fs.readFileSync(iconPath);
+            iconData = `data:image/png;base64,${buf.toString('base64')}`;
+          } catch {}
+        }
+        const stats = fs.statSync(worldPath);
+        worlds.push({
+          folderName: folder,
+          name: folder,
+          lastModified: stats.mtimeMs,
+          icon: iconData,
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to list worlds:', err);
+  }
+  return worlds;
+});
+
+ipcMain.handle('get_instance_log', async (event, { name }) => {
+  const logPath = path.join(getInstancePath(name), 'logs', 'latest.log');
+  if (!fs.existsSync(logPath)) return { ok: false, content: 'No latest.log found for this instance.' };
+  try {
+    const content = fs.readFileSync(logPath, 'utf8');
+    return { ok: true, content: content.slice(-100000) }; // limit to last ~100kb
+  } catch (e) {
+    return { ok: false, content: 'Error reading latest.log: ' + e.message };
+  }
+});
+
 // Import a .mrpack or .zip of .minecraft folder natively in Node.js
 ipcMain.handle('import_pack_native', async (event, { filePath: srcPath, instanceName: rawName }) => {
   const AdmZip = (() => { try { return require('adm-zip'); } catch { return null; } })();
