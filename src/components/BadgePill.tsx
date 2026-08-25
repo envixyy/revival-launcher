@@ -1,4 +1,4 @@
-import { Crown, Code2, Shield, ShieldCheck, Sparkles, Gem, Star } from 'lucide-react';
+import { Crown, Code2, Shield, ShieldCheck, Sparkles, Gem, Star, GitMerge } from 'lucide-react';
 import type { Badge } from '../utils/badges';
 
 interface BadgePillProps {
@@ -17,6 +17,7 @@ export function BadgePill({ badge, size = 'md' }: BadgePillProps) {
       case 'Sparkles': return <Sparkles {...iconProps} />;
       case 'Gem': return <Gem {...iconProps} />;
       case 'Star': return <Star {...iconProps} fill="currentColor" />;
+      case 'GitMerge': return <GitMerge {...iconProps} />;
       default: return <Star {...iconProps} />;
     }
   };

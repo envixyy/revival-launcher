@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import {
   Save, Activity, Clock, ShieldCheck, LogOut, Award, Sparkles,
   Image as ImageIcon, Upload, Star, CheckCircle, ShieldAlert,
-  Crown, Zap
+  Crown, Zap, Lock, Eye, KeyRound, X
 } from 'lucide-react';
-import { BADGE_DEFS, BadgeRole, getBadgesForUser, saveBadgesForUser, getRoleTag } from '../utils/badges';
+import {
+  BADGE_DEFS, BadgeRole, getBadgesForUser, saveBadgesForUser, getRoleTag,
+  getUnlockedBadges, saveDisplayedBadges
+} from '../utils/badges';
 import {
   getSubscription, saveSubscription, grantSubscription,
   SUBSCRIPTION_TIERS, SubscriptionTier, canUseCustomImages
@@ -34,7 +37,18 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
   const [statusMsg, setStatusMsg] = useState('Exploring modpacks on Revival...');
   const [statusType, setStatusType] = useState<'online' | 'idle' | 'dnd' | 'offline'>('online');
   const [selectedRoles, setSelectedRoles] = useState<BadgeRole[]>([]);
+  const [unlockedRoles, setUnlockedRoles] = useState<BadgeRole[]>([]);
   const [saved, setSaved] = useState(false);
+
+  // Preview Modal state
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  // Change Password state
+  const [currPassword, setCurrPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   // Subscription state
   const [sub, setSub] = useState(getSubscription(user.username));
@@ -56,8 +70,12 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
     const savedType = localStorage.getItem('revival_user_type');
     if (savedType) setStatusType(savedType as any);
 
-    const userBadges = getBadgesForUser(user.username);
-    setSelectedRoles(userBadges.map(b => b.role));
+    // Get badges unlocked vs displayed
+    const unlocked = getUnlockedBadges(user.username);
+    setUnlockedRoles(unlocked.map(b => b.role));
+
+    const displayed = getBadgesForUser(user.username);
+    setSelectedRoles(displayed.map(b => b.role));
 
     const userSub = getSubscription(user.username);
     setSub(userSub);
@@ -66,6 +84,7 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
   }, [user]);
 
   const toggleRole = (role: BadgeRole) => {
+    if (!unlockedRoles.includes(role)) return; // Only allow toggling if unlocked
     setSelectedRoles(prev => {
       if (prev.includes(role)) {
         if (prev.length <= 1) return prev;
@@ -105,7 +124,7 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
     localStorage.setItem('revival_user', JSON.stringify(updated));
     localStorage.setItem('revival_user_status', statusMsg);
     localStorage.setItem('revival_user_type', statusType);
-    saveBadgesForUser(user.username, selectedRoles);
+    saveDisplayedBadges(user.username, selectedRoles);
 
     // Save custom banner & avatar to subscription
     const updatedSub = {
@@ -120,6 +139,47 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleUpdatePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!currPassword || !newPassword || !confirmNewPassword) {
+      setPasswordError('All fields are required.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      return;
+    }
+
+    try {
+      const raw = localStorage.getItem('revival_passwords');
+      const db: Record<string, string> = raw ? JSON.parse(raw) : {};
+      const currentStored = db[user.username] || 'revival2025';
+
+      if (currentStored !== currPassword) {
+        setPasswordError('Current password is incorrect.');
+        return;
+      }
+
+      db[user.username] = newPassword;
+      localStorage.setItem('revival_passwords', JSON.stringify(db));
+      setPasswordSuccess('Password updated successfully!');
+      setCurrPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err: any) {
+      setPasswordError('Failed to change password: ' + err.message);
+    }
   };
 
   const handleAdminGrant = (e: React.FormEvent) => {
@@ -368,20 +428,36 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {(Object.keys(BADGE_DEFS) as BadgeRole[]).map(role => {
                   const b = BADGE_DEFS[role];
+                  const isUnlocked = unlockedRoles.includes(role);
                   const isSelected = selectedRoles.includes(role);
+                  
                   return (
                     <button
                       key={role}
                       type="button"
+                      disabled={!isUnlocked}
                       onClick={() => toggleRole(role)}
-                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all text-left ${
-                        isSelected
+                      className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border text-xs font-bold transition-all text-left ${
+                        !isUnlocked
+                          ? 'bg-[#0d0e12]/40 border-[#2c2e38]/50 text-gray-600 cursor-not-allowed opacity-45'
+                          : isSelected
                           ? 'bg-[#1e2029] border-[#facc15] shadow-sm shadow-[#facc15]/10 text-white'
-                          : 'bg-[#0d0e12] border-[#2c2e38] text-gray-400 hover:text-gray-200 hover:border-gray-600 opacity-60'
+                          : 'bg-[#0d0e12] border-[#2c2e38] text-gray-400 hover:text-gray-200 hover:border-gray-600'
                       }`}
                     >
                       <BadgePill badge={b} size="sm" />
-                      <span className="text-[9px] text-gray-500 truncate">{isSelected ? 'Active' : 'Toggle'}</span>
+                      <span className="text-[9px] text-gray-500 flex items-center gap-1 flex-shrink-0">
+                        {!isUnlocked ? (
+                          <>
+                            <Lock size={9} className="text-gray-600" />
+                            <span className="text-gray-600 font-medium">Locked</span>
+                          </>
+                        ) : isSelected ? (
+                          'Active'
+                        ) : (
+                          'Toggle'
+                        )}
+                      </span>
                     </button>
                   );
                 })}
@@ -404,9 +480,68 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
                 <option value="offline">Invisible / Offline</option>
               </select>
             </div>
+
+            {/* Password Section */}
+            <div className="pt-3 border-t border-[#2c2e38]/60 space-y-3">
+              <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                <KeyRound size={13} className="text-[#facc15]" />
+                Change Password
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <input
+                    type="password"
+                    value={currPassword}
+                    onChange={e => setCurrPassword(e.target.value)}
+                    placeholder="Current Password"
+                    className="w-full bg-[#0d0e12] border border-[#2c2e38] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#facc15]"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="New Password"
+                    className="w-full bg-[#0d0e12] border border-[#2c2e38] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#facc15]"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="password"
+                    value={confirmNewPassword}
+                    onChange={e => setConfirmNewPassword(e.target.value)}
+                    placeholder="Confirm New Password"
+                    className="w-full bg-[#0d0e12] border border-[#2c2e38] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#facc15]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={handleUpdatePassword}
+                  className="px-4 py-2 rounded-xl bg-[#22232b] hover:bg-[#2c2e38] text-gray-300 hover:text-white font-bold text-xs border border-[#2c2e38] transition-all flex items-center gap-1.5"
+                >
+                  <Lock size={12} /> Update Password
+                </button>
+
+                {passwordError && (
+                  <p className="text-[11px] text-red-400 font-bold flex items-center gap-1">
+                    <ShieldAlert size={12} /> {passwordError}
+                  </p>
+                )}
+                {passwordSuccess && (
+                  <p className="text-[11px] text-green-400 font-bold flex items-center gap-1">
+                    <CheckCircle size={12} /> {passwordSuccess}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3 pt-3 border-t border-[#2c2e38]">
+          <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-[#2c2e38]">
             <button
               type="submit"
               className="px-6 py-2.5 rounded-xl bg-[#facc15] hover:bg-yellow-300 text-black font-black text-xs shadow-md shadow-yellow-500/20 flex items-center gap-1.5 transition-all active:scale-95"
@@ -414,6 +549,16 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
               <Save size={13} />
               Save Profile Changes
             </button>
+
+            <button
+              type="button"
+              onClick={() => setShowPreviewModal(true)}
+              className="px-5 py-2.5 rounded-xl bg-[#20222a] border border-[#2c2e38] hover:bg-[#2c2e38] text-gray-300 hover:text-white font-black text-xs transition-all flex items-center gap-1.5"
+            >
+              <Eye size={13} />
+              View Profile Card
+            </button>
+
             {saved && (
               <span className="text-xs text-green-400 font-bold animate-fade-in flex items-center gap-1">
                 <ShieldCheck size={14} /> Profile & Banners saved!
@@ -543,6 +688,128 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
           )}
         </div>
       </div>
+
+      {/* VIEW PROFILE CARD PREVIEW MODAL */}
+      {showPreviewModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-sm animate-fade-in p-4">
+          <div className="relative w-full max-w-sm bg-[#16171d] border border-[#2c2e38] rounded-3xl overflow-hidden shadow-2xl animate-scale-up">
+            
+            {/* Header banner */}
+            <div
+              className="h-32 w-full relative bg-[#1c1d22] border-b border-[#2c2e38]"
+              style={{
+                backgroundImage: bannerUrl ? `url(${bannerUrl})` : undefined,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              <button
+                onClick={() => setShowPreviewModal(false)}
+                className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-gray-400 hover:text-white transition-all z-20"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* User profile layout */}
+            <div className="px-5 pb-5 pt-0 relative">
+              {/* Floating Avatar */}
+              <div className="absolute -top-10 left-5">
+                <div className="relative">
+                  <UserAvatar
+                    avatarKeyOrUrl={customAvatarUrl || avatar}
+                    name={displayName}
+                    size="xl"
+                    isSubscribed={hasSub}
+                  />
+                  <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full ring-4 ring-[#16171d] ${statusColors[statusType]}`} />
+                </div>
+              </div>
+
+              {/* Badges/Roles list */}
+              <div className="pt-14 space-y-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h2 className="text-lg font-black text-white leading-tight">
+                      {displayName || user.username}
+                    </h2>
+                    {myRoleTag && (
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.2 rounded bg-black/50 border border-white/10 ${myRoleTag.colorClass}`}>
+                        {myRoleTag.tag}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 font-bold">@{user.username}</p>
+                </div>
+
+                {/* Status card */}
+                <div className="bg-[#0d0e12] border border-[#2c2e38] rounded-2xl p-3">
+                  <p className="text-[10px] uppercase font-black tracking-wider text-gray-500 mb-1">Status Message</p>
+                  <p className="text-xs text-yellow-300 font-semibold italic">"{statusMsg}"</p>
+                </div>
+
+                {/* Sub & Active Badges info */}
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase font-black tracking-wider text-gray-500">Active Badges</p>
+                  
+                  {activeBadges.length === 0 ? (
+                    <p className="text-[10px] text-gray-600 font-bold italic">No badges selected for display.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeBadges.map(badge => (
+                        <div
+                          key={badge.role}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-black/40 border border-white/5 shadow-sm text-xs font-bold text-gray-300`}
+                          title={badge.description}
+                        >
+                          <BadgePill badge={badge} size="sm" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Sub details card */}
+                {hasSub && (
+                  <div className="p-3 bg-gradient-to-r from-[#1c180d] to-[#15161c] border border-yellow-500/20 rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Star size={14} className="text-[#facc15]" fill="currentColor" />
+                      <div>
+                        <p className="text-[10px] font-black text-yellow-400">Revival {SUBSCRIPTION_TIERS[sub.tier === 'none' ? 'plus' : sub.tier].name}</p>
+                        <p className="text-[8px] text-gray-400 font-medium">Premium Member Perks Active</p>
+                      </div>
+                    </div>
+                    <span className="text-[8px] font-black tracking-wider bg-yellow-400/10 text-yellow-400 px-1.5 py-0.5 rounded border border-yellow-400/20 uppercase">
+                      PRO
+                    </span>
+                  </div>
+                )}
+
+                {/* Network stats card */}
+                <div className="grid grid-cols-2 gap-2 bg-[#0d0e12] border border-[#2c2e38] rounded-2xl p-3 text-center">
+                  <div>
+                    <p className="text-[9px] uppercase font-black tracking-wider text-gray-500">Play Time</p>
+                    <p className="text-xs font-black text-white mt-0.5 flex items-center justify-center gap-1"><Clock size={11} className="text-gray-400" /> 18.2h</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase font-black tracking-wider text-gray-500">Joined Network</p>
+                    <p className="text-xs font-black text-white mt-0.5">Aug 2026</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  className="w-full py-2.5 bg-[#20222a] border border-[#2c2e38] hover:bg-[#2c2e38] text-gray-300 hover:text-white text-xs font-black rounded-xl transition-all"
+                >
+                  Close Profile View
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
