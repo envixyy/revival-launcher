@@ -47,6 +47,16 @@ function App() {
 
   // Authentication & Chat overlay states (Persists 1-time login permanently)
   const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string; avatar: string } | null>(() => {
+    // Ensure envixyy's default password is always seeded in the DB
+    try {
+      const raw = localStorage.getItem('revival_passwords');
+      const db: Record<string, string> = raw ? JSON.parse(raw) : {};
+      if (!db['envixyy']) {
+        db['envixyy'] = 'revival2025';
+        localStorage.setItem('revival_passwords', JSON.stringify(db));
+      }
+    } catch {}
+
     try {
       const saved = localStorage.getItem('revival_user');
       if (saved) return JSON.parse(saved);

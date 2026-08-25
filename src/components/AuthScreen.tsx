@@ -9,12 +9,35 @@ interface AuthScreenProps {
 
 const AVATAR_KEYS = ['crown', 'swords', 'zap', 'gamepad', 'shield', 'flame', 'sparkles', 'terminal', 'bot', 'rocket'];
 
+// Passwords stored as { [username]: password } in localStorage
+function getPasswords(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('revival_passwords');
+    const db: Record<string, string> = raw ? JSON.parse(raw) : {};
+    // Pre-seed envixyy default password if not yet set
+    if (!db['envixyy']) {
+      db['envixyy'] = 'revival2025';
+      localStorage.setItem('revival_passwords', JSON.stringify(db));
+    }
+    return db;
+  } catch {
+    return { envixyy: 'revival2025' };
+  }
+}
+
+function savePassword(username: string, password: string) {
+  const db = getPasswords();
+  db[username] = password;
+  localStorage.setItem('revival_passwords', JSON.stringify(db));
+}
+
 export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState('crown');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,37 +48,61 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setLoading(true);
 
     setTimeout(() => {
-      if (!username || !password) {
+      const uname = username.toLowerCase().trim();
+      if (!uname || !password) {
         setError('Please fill in all fields.');
         setLoading(false);
         return;
       }
 
+      const db = getPasswords();
+
       if (mode === 'register') {
-        const newUser = {
-          username: username.toLowerCase().trim(),
-          displayName: displayName.trim() || username,
-          avatar: selectedAvatar,
-        };
+        if (password !== confirmPassword) {
+          setError('Passwords do not match.');
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters.');
+          setLoading(false);
+          return;
+        }
+        if (uname === 'envixyy') {
+          setError('That username is reserved. Please sign in instead.');
+          setLoading(false);
+          return;
+        }
+        const newUser = { username: uname, displayName: displayName.trim() || username, avatar: selectedAvatar };
+        savePassword(uname, password);
         localStorage.setItem('revival_user', JSON.stringify(newUser));
         onAuthSuccess(newUser);
+
       } else {
-        const saved = localStorage.getItem('revival_user');
-        if (saved) {
-          const user = JSON.parse(saved);
-          if (user.username === username.toLowerCase().trim()) {
-            onAuthSuccess(user);
-            setLoading(false);
-            return;
-          }
+        // LOGIN — check password
+        const storedPw = db[uname];
+        if (!storedPw) {
+          setError('Account not found. Create an account first.');
+          setLoading(false);
+          return;
         }
-        const defaultUser = {
-          username: username.toLowerCase().trim(),
-          displayName: username,
-          avatar: 'crown',
-        };
-        localStorage.setItem('revival_user', JSON.stringify(defaultUser));
-        onAuthSuccess(defaultUser);
+        if (storedPw !== password) {
+          setError('Incorrect password. Please try again.');
+          setLoading(false);
+          return;
+        }
+        // Load saved profile or build one
+        let user: { username: string; displayName: string; avatar: string } | null = null;
+        try {
+          const saved = localStorage.getItem('revival_user');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.username === uname) user = parsed;
+          }
+        } catch {}
+        if (!user) user = { username: uname, displayName: uname, avatar: uname === 'envixyy' ? 'crown' : 'gamepad' };
+        localStorage.setItem('revival_user', JSON.stringify(user));
+        onAuthSuccess(user);
       }
       setLoading(false);
     }, 600);
@@ -154,6 +201,25 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               />
             </div>
           </div>
+
+          {mode === 'register' && (
+            <div>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-gray-400 mb-1.5">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-[#1c1d22] border border-[#2c2e38] rounded-xl py-2.5 pl-10 pr-4 text-xs text-white outline-none focus:border-[#facc15]/60 transition-all font-semibold"
+                  required
+                />
+              </div>
+            </div>
+          )}
 
           {mode === 'register' && (
             <div>
