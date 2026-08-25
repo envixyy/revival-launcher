@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, DownloadCloud } from 'lucide-react';
 import logoImg from '../assets/logo.png';
 
 interface TitleBarProps {
@@ -6,6 +6,8 @@ interface TitleBarProps {
   canGoBack: boolean;
   onBack: () => void;
   instancesRunning: number;
+  updateAvailable?: boolean;
+  onOpenUpdateModal?: () => void;
 }
 
 declare global {
@@ -23,7 +25,7 @@ declare global {
   }
 }
 
-export function TitleBar({ currentPage, canGoBack, onBack, instancesRunning }: TitleBarProps) {
+export function TitleBar({ currentPage, canGoBack, onBack, instancesRunning, updateAvailable, onOpenUpdateModal }: TitleBarProps) {
   return (
     <div
       className="flex items-center h-10 px-3 select-none flex-shrink-0 bg-[#0a0b0e] border-b border-[#1a1b22]"
@@ -117,6 +119,19 @@ export function TitleBar({ currentPage, canGoBack, onBack, instancesRunning }: T
 
       {/* Drag spacer */}
       <div className="flex-1" />
+
+      {/* Update Available Badge */}
+      {updateAvailable && (
+        <button
+          onClick={onOpenUpdateModal}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          className="flex items-center gap-1.5 mr-3 px-2.5 py-1 rounded-full bg-[#facc15] hover:bg-yellow-300 text-black font-black text-[10px] uppercase tracking-wide transition-all shadow-md shadow-yellow-500/20 active:scale-95 animate-bounce-in"
+          title="Click to view update and install"
+        >
+          <DownloadCloud size={12} className="animate-bounce" />
+          Update Available
+        </button>
+      )}
 
       {/* Running Instances Pill */}
       <div

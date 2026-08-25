@@ -15,9 +15,11 @@ import { TitleBar } from './components/TitleBar';
 import { CreateInstanceModal } from './components/CreateInstanceModal';
 import { ImportModal } from './components/ImportModal';
 import { SocialSidebar } from './components/SocialSidebar';
+import { UpdateAvailableModal } from './components/UpdateAvailableModal';
 import type { Friend } from './components/SocialSidebar';
 import { safeInvoke } from './utils/tauri';
 import { applyTheme } from './utils/theme';
+import { checkForUpdates, UpdateInfo } from './utils/updater';
 
 export interface Instance {
   name: string;
@@ -49,6 +51,10 @@ function App() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Updates state
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+
   // Authentication & Chat overlay states (Persists 1-time login permanently)
   const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string; avatar: string } | null>(() => {
     // Ensure envixyy's default password is always seeded in the DB
@@ -73,6 +79,32 @@ function App() {
     }
   });
   const [activeChatFriend, setActiveChatFriend] = useState<Friend | null>(null);
+
+  // Background update check on startup & exposed for manual checks
+  const runUpdateCheck = async (force = false) => {
+    try {
+      const res = await checkForUpdates(force);
+      setUpdateInfo(res);
+      if (res.available) {
+        setShowUpdateModal(true);
+      } else if (force) {
+        alert('You are running the latest version of Revival Launcher (v' + res.currentVersion + ')!');
+      }
+    } catch (err) {
+      console.warn('Update check failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    (window as any).__revivalCheckUpdates = runUpdateCheck;
+
+    // Check after short delay on initial load
+    const timer = setTimeout(() => {
+      runUpdateCheck(false);
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -146,6 +178,8 @@ function App() {
         canGoBack={canGoBack}
         onBack={handleBack}
         instancesRunning={instancesRunning}
+        updateAvailable={!!updateInfo?.available}
+        onOpenUpdateModal={() => setShowUpdateModal(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -259,6 +293,14 @@ function App() {
           friend={activeChatFriend}
           myUsername={currentUser.username}
           onClose={() => setActiveChatFriend(null)}
+        />
+      )}
+
+      {/* Update Available Modal (Prism Launcher style) */}
+      {showUpdateModal && updateInfo && (
+        <UpdateAvailableModal
+          info={updateInfo}
+          onClose={() => setShowUpdateModal(false)}
         />
       )}
     </div>

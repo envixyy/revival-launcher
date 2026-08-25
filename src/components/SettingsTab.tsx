@@ -291,6 +291,54 @@ export function SettingsTab({ config, onSaveConfig }: SettingsTabProps) {
             </div>
           </div>
         </section>
+
+        {/* Updates & Version Information */}
+        <section className="bg-revival-card border border-gray-800 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-[#facc15]/10 border border-[#facc15]/30 flex items-center justify-center text-[#facc15]">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Launcher Updates &amp; Build</h3>
+                <p className="text-xs text-gray-400">Keep your Revival Launcher updated with the latest fixes and features.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="bg-[#0d0e12] border border-[#2c2e38] rounded-xl p-3.5">
+              <p className="text-[10px] font-black uppercase text-gray-500">Current Version</p>
+              <p className="text-sm font-black text-white mt-0.5">v0.3.0</p>
+              <span className="text-[9px] text-[#facc15] font-bold">Pre-Release Milestone</span>
+            </div>
+            <div className="bg-[#0d0e12] border border-[#2c2e38] rounded-xl p-3.5">
+              <p className="text-[10px] font-black uppercase text-gray-500">Update Channel</p>
+              <p className="text-sm font-black text-white mt-0.5">GitHub Releases</p>
+              <span className="text-[9px] text-green-400 font-bold">Automatic Sync</span>
+            </div>
+            <div className="bg-[#0d0e12] border border-[#2c2e38] rounded-xl p-3.5">
+              <p className="text-[10px] font-black uppercase text-gray-500">Author &amp; Dev</p>
+              <p className="text-sm font-black text-amber-400 mt-0.5">@envixyy</p>
+              <span className="text-[9px] text-gray-400 font-bold">Revival Core Team</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs text-gray-400">Checks against GitHub for the newest releases and setup installers.</span>
+            <button
+              type="button"
+              onClick={async () => {
+                if ((window as any).__revivalCheckUpdates) {
+                  (window as any).__revivalCheckUpdates(true);
+                }
+              }}
+              className="px-4 py-2 bg-[#facc15] hover:bg-yellow-300 text-black text-xs font-black rounded-xl shadow-md shadow-yellow-500/20 transition-all flex items-center gap-1.5 active:scale-95"
+            >
+              Check for Updates Now
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );
