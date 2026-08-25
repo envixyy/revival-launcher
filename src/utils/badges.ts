@@ -1,0 +1,115 @@
+/**
+ * Revival Network — Role Badge System
+ * Uses modern Lucide vector icon names instead of emojis.
+ */
+
+export type BadgeRole = 'owner' | 'developer' | 'admin' | 'moderator' | 'supporter' | 'early_access' | 'plus';
+
+export interface Badge {
+  role: BadgeRole;
+  label: string;
+  /** Tailwind badge styling */
+  style: string;
+  /** Lucide icon identifier */
+  iconName: 'Crown' | 'Code2' | 'Shield' | 'ShieldCheck' | 'Sparkles' | 'Gem' | 'Star';
+  /** Tooltip description */
+  description: string;
+  glowColor?: string;
+}
+
+export const BADGE_DEFS: Record<BadgeRole, Badge> = {
+  owner: {
+    role: 'owner',
+    label: 'Owner',
+    style: 'bg-amber-500/20 text-amber-300 border border-amber-400/40 shadow-sm shadow-amber-500/20',
+    iconName: 'Crown',
+    description: 'Revival Network Owner & Founder',
+    glowColor: '#f59e0b',
+  },
+  developer: {
+    role: 'developer',
+    label: 'Developer',
+    style: 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm shadow-cyan-500/20',
+    iconName: 'Code2',
+    description: 'Core Software Engineer & Modder',
+    glowColor: '#06b6d4',
+  },
+  admin: {
+    role: 'admin',
+    label: 'Admin',
+    style: 'bg-rose-500/20 text-rose-300 border border-rose-400/40 shadow-sm shadow-rose-500/20',
+    iconName: 'Shield',
+    description: 'System Administrator',
+    glowColor: '#f43f5e',
+  },
+  moderator: {
+    role: 'moderator',
+    label: 'Moderator',
+    style: 'bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-sm shadow-purple-500/20',
+    iconName: 'ShieldCheck',
+    description: 'Community & Server Moderator',
+    glowColor: '#a855f7',
+  },
+  supporter: {
+    role: 'supporter',
+    label: 'Supporter',
+    style: 'bg-pink-500/20 text-pink-300 border border-pink-400/40 shadow-sm shadow-pink-500/20',
+    iconName: 'Sparkles',
+    description: 'Revival Network Supporter & Booster',
+    glowColor: '#ec4899',
+  },
+  early_access: {
+    role: 'early_access',
+    label: 'VIP',
+    style: 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 shadow-sm shadow-emerald-500/20',
+    iconName: 'Gem',
+    description: 'Early Access Member',
+    glowColor: '#10b981',
+  },
+  plus: {
+    role: 'plus',
+    label: 'PLUS+',
+    style: 'bg-gradient-to-r from-yellow-500/25 to-amber-500/20 text-yellow-300 border border-yellow-400/50 shadow-sm shadow-yellow-500/30 font-black',
+    iconName: 'Star',
+    description: 'Revival PLUS+ Subscriber',
+    glowColor: '#facc15',
+  },
+};
+
+const DEFAULT_ROLE_MAP: Record<string, BadgeRole[]> = {
+  vix: ['owner', 'developer', 'admin', 'plus'],
+  revival: ['owner', 'plus'],
+  developer: ['developer'],
+  admin: ['admin'],
+  moderator: ['moderator'],
+};
+
+export function getBadgesForUser(username: string): Badge[] {
+  if (!username) return [BADGE_DEFS.early_access];
+  
+  try {
+    const saved = localStorage.getItem(`revival_badges_${username.toLowerCase()}`);
+    if (saved) {
+      const roles: BadgeRole[] = JSON.parse(saved);
+      if (Array.isArray(roles) && roles.length > 0) {
+        return roles.map(r => BADGE_DEFS[r]).filter(Boolean);
+      }
+    }
+  } catch {}
+
+  const defaultRoles = DEFAULT_ROLE_MAP[username.toLowerCase()] || ['owner', 'developer', 'plus'];
+  return defaultRoles.map(r => BADGE_DEFS[r]).filter(Boolean);
+}
+
+export function saveBadgesForUser(username: string, roles: BadgeRole[]) {
+  if (!username) return;
+  try {
+    localStorage.setItem(`revival_badges_${username.toLowerCase()}`, JSON.stringify(roles));
+  } catch {}
+}
+
+export function isAdminOrOwner(username: string): boolean {
+  if (!username) return false;
+  const badges = getBadgesForUser(username);
+  return badges.some(b => b.role === 'owner' || b.role === 'admin' || b.role === 'developer');
+}

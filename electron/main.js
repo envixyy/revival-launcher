@@ -5,6 +5,14 @@ const fs = require('fs');
 const https = require('https');
 const { Client, Authenticator } = require('minecraft-launcher-core');
 
+try {
+  app.setPath('userData', path.join(app.getPath('appData'), 'RevivalLauncher_AppProfile'));
+} catch (e) {}
+
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-gpu-compositing');
+app.commandLine.appendSwitch('no-sandbox');
+
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
@@ -27,13 +35,15 @@ const runningProcesses = new Map();
 function createWindow() {
   Menu.setApplicationMenu(null);
   mainWindow = new BrowserWindow({
-    width: 1040,
-    height: 680,
+    width: 1060,
+    height: 700,
     minWidth: 850,
     minHeight: 580,
     resizable: true,
     backgroundColor: '#111216',
     frame: false,
+    show: true,
+    alwaysOnTop: true,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -41,6 +51,14 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  mainWindow.show();
+  mainWindow.focus();
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setAlwaysOnTop(false);
+    }
+  }, 1200);
 
   // Only use Vite when a dev server URL is explicitly supplied. This keeps
   // `npm run electron` usable after `npm run build` without a server running.

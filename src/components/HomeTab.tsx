@@ -1,9 +1,16 @@
 import { useEffect, useState, useRef } from 'react';
-import { Play, Settings2, Plus, RefreshCw, Terminal, X, UserCircle, Newspaper, Users, ExternalLink, StopCircle, ChevronDown, Upload, FolderOpen, Copy, Trash2 } from 'lucide-react';
+import {
+  Play, Settings2, Plus, RefreshCw, Terminal, X,
+  StopCircle, ChevronDown, Upload, FolderOpen,
+  Copy, Trash2, Megaphone, Sparkles, ChevronRight,
+  Layers, Hammer, Cpu, Box, Boxes, Gamepad2, Swords,
+  Zap, Package, Flame
+} from 'lucide-react';
 import { safeInvoke, isElectron } from '../utils/tauri';
 import { CreateInstanceModal } from './CreateInstanceModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
 import { ImportModal } from './ImportModal';
+import { PLATFORM_ANNOUNCEMENTS, SEVERITY_STYLES } from '../utils/announcements';
 
 interface Instance {
   name: string;
@@ -16,61 +23,18 @@ interface Instance {
   last_played?: string | null;
 }
 
-interface Account {
-  id: string;
-  type: 'microsoft' | 'offline';
-  username: string;
-  uuid: string;
-  access_token: string;
-}
-
-interface AccountData {
-  accounts: Account[];
-  active_id: string | null;
-}
-
 interface HomeTabProps {
   onSelectInstance?: (instance: Instance) => void;
   onLaunch?: (name: string) => void;
-  onStartChat?: (friendName: string) => void;
 }
 
-const NEWS_ITEMS = [
-  {
-    tag: 'UPDATE',
-    title: 'Revival Launcher v0.1.0 Released',
-    body: 'Full Modrinth + CurseForge integration, Prism backend, one-click mod installs.',
-    url: 'https://github.com',
-    date: 'Aug 2026',
-  },
-  {
-    tag: 'MINECRAFT',
-    title: 'Minecraft 1.21.4 is Now Available',
-    body: 'The latest Minecraft release is supported. Create a new instance to try it out.',
-    url: 'https://minecraft.net',
-    date: 'Aug 2026',
-  },
-];
-
-function loaderIcon(loader: string) {
-  if (loader === 'Fabric') return '🧵';
-  if (loader === 'Forge') return '🔨';
-  if (loader === 'Quilt') return '🪡';
-  if (loader === 'NeoForge') return '⚙️';
-  return '🌳';
-}
-
-function AvatarPill({ name }: { name: string }) {
-  const colors = ['#b45309','#1d4ed8','#7c3aed','#be185d','#0f766e'];
-  const idx = name.charCodeAt(0) % colors.length;
-  return (
-    <div
-      className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm text-white flex-shrink-0"
-      style={{ background: colors[idx] }}
-    >
-      {name[0].toUpperCase()}
-    </div>
-  );
+function LoaderIconComp({ loader }: { loader: string }) {
+  const l = (loader || '').toLowerCase();
+  if (l.includes('fabric')) return <Layers size={20} className="text-[#38bdf8]" />;
+  if (l.includes('forge') && !l.includes('neo')) return <Hammer size={20} className="text-[#f97316]" />;
+  if (l.includes('neoforge')) return <Cpu size={20} className="text-[#f59e0b]" />;
+  if (l.includes('quilt')) return <Boxes size={20} className="text-[#a855f7]" />;
+  return <Box size={20} className="text-[#22c55e]" />;
 }
 
 // Stop/Kill dropdown button for running instances
@@ -91,31 +55,31 @@ function RunningButtons({ name: _name, onStop, onKill }: { name: string; onStop:
       {/* Main Stop button */}
       <button
         onClick={onStop}
-        className="flex items-center gap-1.5 pl-4 pr-2 py-2 rounded-l-xl bg-red-500 hover:bg-red-400 text-white font-extrabold text-sm shadow-lg shadow-red-500/25 transition-all active:scale-95"
+        className="flex items-center gap-1.5 pl-3.5 pr-2 py-1.5 rounded-l-xl bg-red-500 hover:bg-red-400 text-white font-black text-xs shadow-md shadow-red-500/25 transition-all active:scale-95"
       >
-        <StopCircle size={14} />
+        <StopCircle size={13} />
         Stop
       </button>
       {/* Dropdown arrow */}
       <button
         onClick={() => setOpen(v => !v)}
-        className="py-2 px-1.5 rounded-r-xl bg-red-600 hover:bg-red-500 text-white border-l border-red-700 transition-all"
+        className="py-1.5 px-1.5 rounded-r-xl bg-red-600 hover:bg-red-500 text-white border-l border-red-700 transition-all"
       >
-        <ChevronDown size={14} />
+        <ChevronDown size={13} />
       </button>
 
       {open && (
         <div className="absolute right-0 top-full mt-1 w-36 bg-[#16171d] border border-[#2c2e38] rounded-xl shadow-2xl z-30 overflow-hidden animate-fade-in">
           <button
             onClick={() => { setOpen(false); onStop(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-white hover:bg-[#1c1d22] transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-white hover:bg-[#1c1d22] transition-colors"
           >
             <StopCircle size={13} className="text-red-400" />
             Stop (graceful)
           </button>
           <button
             onClick={() => { setOpen(false); onKill(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-[#2c2e38]"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-[#2c2e38]"
           >
             <X size={13} />
             Force Kill
@@ -149,28 +113,28 @@ function InstanceMenu({ instance: _instance, onSettings, onDuplicate, onDelete, 
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="p-2 rounded-lg bg-[#262830] hover:bg-[#343744] text-gray-400 hover:text-white transition-colors"
-        title="More options"
+        className="p-2 rounded-xl bg-[#20222a] hover:bg-[#2c2f3b] text-gray-400 hover:text-white transition-colors"
+        title="Instance Options"
       >
-        <Settings2 size={14} />
+        <Settings2 size={13} />
       </button>
 
       {open && (
         <div className="absolute right-0 top-full mt-1 w-44 bg-[#16171d] border border-[#2c2e38] rounded-xl shadow-2xl z-30 overflow-hidden animate-fade-in">
           <button onClick={() => { setOpen(false); onSettings(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-white hover:bg-[#1c1d22] transition-colors">
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-white hover:bg-[#1c1d22] transition-colors">
             <Settings2 size={13} className="text-gray-400" /> Settings
           </button>
           <button onClick={() => { setOpen(false); onOpenFolder(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-white hover:bg-[#1c1d22] transition-colors">
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-white hover:bg-[#1c1d22] transition-colors">
             <FolderOpen size={13} className="text-gray-400" /> Open Folder
           </button>
           <button onClick={() => { setOpen(false); onDuplicate(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-white hover:bg-[#1c1d22] transition-colors border-t border-[#2c2e38]">
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-white hover:bg-[#1c1d22] transition-colors border-t border-[#2c2e38]">
             <Copy size={13} className="text-gray-400" /> Duplicate
           </button>
           <button onClick={() => { setOpen(false); onDelete(); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-[#2c2e38]">
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors border-t border-[#2c2e38]">
             <Trash2 size={13} /> Delete
           </button>
         </div>
@@ -179,7 +143,7 @@ function InstanceMenu({ instance: _instance, onSettings, onDuplicate, onDelete, 
   );
 }
 
-export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, onStartChat }: HomeTabProps) {
+export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch }: HomeTabProps) {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -188,9 +152,10 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, onStart
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [showConsole, setShowConsole] = useState(false);
   const [runningInstances, setRunningInstances] = useState<Set<string>>(new Set());
+  const [activeAnnouncementIdx, setActiveAnnouncementIdx] = useState(0);
   const consoleBottomRef = useRef<HTMLDivElement>(null);
-  const [accountData, setAccountData] = useState<AccountData>({ accounts: [], active_id: null });
-  const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
+
+  const announcements = PLATFORM_ANNOUNCEMENTS;
 
   const fetchInstances = async () => {
     setLoading(true);
@@ -204,14 +169,6 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, onStart
     }
   };
 
-  const fetchAccounts = async () => {
-    try {
-      const res = await safeInvoke<AccountData>('list_accounts');
-      setAccountData(res);
-    } catch {}
-  };
-
-  // Sync running instances from backend on mount
   const syncRunning = async () => {
     try {
       const running = await safeInvoke<string[]>('list_running');
@@ -221,7 +178,6 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, onStart
 
   useEffect(() => {
     fetchInstances();
-    fetchAccounts();
     syncRunning();
 
     if (isElectron()) {
@@ -236,7 +192,6 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, onStart
           setShowConsole(true);
         }
       });
-      // Listen for instance state changes
       const api = (window as any).electronAPI;
       if (api.onInstanceState) {
         api.onInstanceState((data: { name: string; running: boolean }) => {
@@ -314,291 +269,282 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, onStart
     await safeInvoke('open_instance_folder', { name });
   };
 
-  const handleSetActiveAccount = async (id: string) => {
-    try {
-      await safeInvoke('set_active_account', { id });
-      fetchAccounts();
-      setShowAccountSwitcher(false);
-    } catch {}
-  };
-
-  const activeAccount = accountData.accounts.find(a => a.id === accountData.active_id);
+  const currentAnn = announcements[activeAnnouncementIdx] || announcements[0];
+  const annStyle = SEVERITY_STYLES[currentAnn.severity];
 
   return (
-    <div className="animate-fade-in relative">
+    <div className="animate-fade-in relative space-y-5 max-w-5xl">
       {/* Console overlay */}
       {showConsole && (
-        <div className="fixed bottom-5 right-5 w-96 bg-[#0d0e11] border border-[#facc15]/20 rounded-2xl shadow-2xl z-50 flex flex-col max-h-64 overflow-hidden">
-          <div className="flex justify-between items-center px-4 py-2.5 border-b border-[#1c1d22]">
+        <div className="fixed bottom-5 right-5 w-96 bg-[#0d0e11] border border-[#facc15]/30 rounded-2xl shadow-2xl z-50 flex flex-col max-h-64 overflow-hidden animate-fade-in">
+          <div className="flex items-center justify-between px-3 py-2 bg-[#16171d] border-b border-[#2c2e38]">
             <div className="flex items-center gap-2">
               <Terminal size={13} className="text-[#facc15]" />
-              <span className="text-xs font-bold text-gray-300">Launch Log</span>
+              <span className="text-[11px] font-black text-white">Launcher Console</span>
             </div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setConsoleLogs([])} className="text-[10px] text-gray-500 hover:text-gray-300 px-1 transition-colors">Clear</button>
-              <button onClick={() => setShowConsole(false)} className="text-gray-500 hover:text-white transition-colors p-0.5"><X size={13} /></button>
-            </div>
+            <button onClick={() => setShowConsole(false)} className="text-gray-400 hover:text-white">
+              <X size={13} />
+            </button>
           </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-2 font-mono text-[10px] space-y-0.5 select-text">
-            {consoleLogs.map((log, idx) => (
-              <div key={idx} className={`break-all leading-relaxed ${log.includes('[ERROR]') ? 'text-red-400' : log.includes('[DOWNLOAD]') ? 'text-[#facc15]' : 'text-slate-300'}`}>
-                {log}
-              </div>
+          <div className="flex-1 p-3 overflow-y-auto font-mono text-[10px] text-gray-300 space-y-1 bg-[#090a0d]">
+            {consoleLogs.map((l, i) => (
+              <div key={i} className="leading-tight break-all">{l}</div>
             ))}
             <div ref={consoleBottomRef} />
           </div>
         </div>
       )}
 
-      <div className="flex gap-6">
-        {/* ── Main column ── */}
-        <div className="flex-1 space-y-5 min-w-0">
-
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-black text-white tracking-tight">Welcome back!</h1>
-              <p className="text-sm text-gray-400 mt-0.5">Jump back in</p>
-            </div>
+      {/* PLATFORM-WIDE ANNOUNCEMENTS BANNER */}
+      <div className={`relative rounded-2xl border ${annStyle.border} ${annStyle.bg} p-3.5 flex items-center justify-between gap-3 shadow-lg overflow-hidden`}>
+        <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${annStyle.bar}`} />
+        
+        <div className="flex items-center gap-3 min-w-0 pl-1.5">
+          <div className="w-8 h-8 rounded-xl bg-[#16171d] border border-[#2c2e38] flex items-center justify-center flex-shrink-0 text-sm shadow-sm">
+            <Megaphone size={15} className={annStyle.text} />
+          </div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1c1d22] border border-[#2c2e38] text-gray-400 hover:text-white hover:border-[#facc15]/40 transition-all text-xs font-bold"
-                title="Import .mrpack or .zip"
-              >
-                <Upload size={13} /> Import
-              </button>
-              <button
-                onClick={fetchInstances}
-                className="p-2 rounded-xl bg-[#1c1d22] border border-[#2c2e38] text-gray-400 hover:text-white hover:border-[#facc15]/40 transition-all"
-              >
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              </button>
+              <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.2 rounded bg-black/40 text-gray-300 border border-white/5">
+                Announcement
+              </span>
+              <h4 className="font-extrabold text-xs text-white truncate">{currentAnn.title}</h4>
+              <span className="text-[9px] text-gray-500 font-bold hidden sm:inline">({currentAnn.date})</span>
             </div>
-          </div>
-
-          {/* Instance rows */}
-          <div className="space-y-2">
-            {loading
-              ? [1, 2].map(n => <div key={n} className="h-16 bg-[#1c1d22] rounded-2xl animate-pulse" />)
-              : instances.length === 0
-                ? (
-                    <div className="bg-[#1c1d22] border border-[#2c2e38] rounded-2xl p-8 text-center">
-                      <p className="text-sm text-gray-400 mb-3">No instances yet. Create or import one to get started.</p>
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => setShowCreateModal(true)} className="px-4 py-2 rounded-xl bg-[#facc15] text-black font-bold text-xs hover:bg-yellow-300 transition-all flex items-center gap-1.5">
-                          <Plus size={13} /> Create
-                        </button>
-                        <button onClick={() => setShowImportModal(true)} className="px-4 py-2 rounded-xl bg-[#1c1d22] border border-[#2c2e38] text-gray-300 font-bold text-xs hover:border-[#facc15]/40 transition-all flex items-center gap-1.5">
-                          <Upload size={13} /> Import Pack
-                        </button>
-                      </div>
-                    </div>
-                  )
-                : instances.map((inst, idx) => {
-                    const isRunning = runningInstances.has(inst.name);
-                    return (
-                      <div
-                        key={idx}
-                        className={`border rounded-2xl px-4 py-3 flex items-center justify-between transition-all group cursor-pointer ${
-                          isRunning
-                            ? 'bg-[#facc15]/5 border-[#facc15]/30'
-                            : 'bg-[#1c1d22] border-[#2c2e38] hover:border-[#facc15]/40'
-                        }`}
-                        onClick={(e) => {
-                          const t = e.target as HTMLElement;
-                          if (t.closest('button') || t.closest('[role="menu"]')) return;
-                          if (_onSelectInstance) _onSelectInstance(inst);
-                        }}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="relative">
-                            <div className="w-10 h-10 rounded-xl bg-[#262830] border border-[#343744] flex items-center justify-center text-xl flex-shrink-0 group-hover:scale-105 transition-transform">
-                              {loaderIcon(inst.loader)}
-                            </div>
-                            {isRunning && (
-                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#facc15] ring-2 ring-[#111216] animate-pulse" />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-extrabold text-sm text-white truncate group-hover:text-[#facc15] transition-colors">{inst.name}</p>
-                              {isRunning && <span className="text-[10px] font-bold text-[#facc15] bg-[#facc15]/10 px-1.5 py-0.5 rounded-md">RUNNING</span>}
-                            </div>
-                            <p className="text-xs text-gray-400">{inst.mc_version} · {inst.loader || 'Vanilla'} · {inst.last_played ? new Date(inst.last_played).toLocaleDateString() : 'Never played'}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <InstanceMenu
-                            instance={inst}
-                            onSettings={() => setActiveInstanceForSettings(inst)}
-                            onDuplicate={() => handleDuplicate(inst.name)}
-                            onDelete={() => handleDelete(inst.name)}
-                            onOpenFolder={() => handleOpenFolder(inst.name)}
-                          />
-                          {isRunning ? (
-                            <RunningButtons
-                              name={inst.name}
-                              onStop={() => handleStop(inst.name)}
-                              onKill={() => handleKill(inst.name)}
-                            />
-                          ) : (
-                            <button
-                              onClick={() => handleLaunch(inst.name)}
-                              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#facc15] hover:bg-[#fde047] text-black font-extrabold text-sm shadow-lg shadow-yellow-500/20 transition-all active:scale-95"
-                            >
-                              <Play size={14} fill="currentColor" />
-                              Play
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-            }
-
-            {instances.length > 0 && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="flex-1 py-2.5 border-2 border-dashed border-[#2c2e38] hover:border-[#facc15]/50 rounded-2xl flex items-center justify-center gap-2 text-gray-400 hover:text-[#facc15] font-bold text-xs transition-all"
-                >
-                  <Plus size={14} /> Create New Instance
-                </button>
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="flex-1 py-2.5 border-2 border-dashed border-[#2c2e38] hover:border-[#facc15]/50 rounded-2xl flex items-center justify-center gap-2 text-gray-400 hover:text-[#facc15] font-bold text-xs transition-all"
-                >
-                  <Upload size={14} /> Import Pack
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Discover */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-extrabold text-white">Discover Featured Packs</h2>
-              <button className="text-xs text-[#facc15] hover:underline font-semibold flex items-center gap-1">
-                View all <ExternalLink size={11} />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { name: 'Origin Realms', icon: '⚔️', desc: 'Survival with custom biomes & quests.', gradient: 'from-emerald-950 to-slate-900' },
-                { name: 'Cobblemon Official', icon: '🐲', desc: 'Open-world Pokémon for Fabric 1.20.1+', gradient: 'from-amber-950 to-slate-900' },
-                { name: 'All of Fabric 6', icon: '🏗️', desc: 'Hundreds of Fabric mods, curated.', gradient: 'from-blue-950 to-slate-900' },
-                { name: 'Better MC', icon: '🌿', desc: 'Vanilla+ quality of life improvements.', gradient: 'from-green-950 to-slate-900' },
-              ].map(pack => (
-                <div key={pack.name} className="bg-[#1c1d22] border border-[#2c2e38] hover:border-[#facc15]/40 rounded-2xl overflow-hidden group cursor-pointer transition-all">
-                  <div className={`h-16 bg-gradient-to-br ${pack.gradient} flex items-center justify-center text-3xl`}>
-                    {pack.icon}
-                  </div>
-                  <div className="p-3">
-                    <h4 className="font-extrabold text-xs text-white group-hover:text-[#facc15] transition-colors">{pack.name}</h4>
-                    <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{pack.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="text-[11px] text-gray-300 truncate mt-0.5 font-medium">
+              {currentAnn.body}
+            </p>
           </div>
         </div>
 
-        {/* ── Right panel ── */}
-        <div className="w-60 space-y-4 flex-shrink-0">
-
-          {/* Playing As */}
-          <div className="bg-[#1c1d22] border border-[#2c2e38] rounded-2xl p-4 relative">
-            <div className="flex items-center gap-1.5 mb-3">
-              <UserCircle size={12} className="text-gray-400" />
-              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">Playing as</h4>
-            </div>
-            <button
-              onClick={() => setShowAccountSwitcher(v => !v)}
-              className="w-full flex items-center gap-3 bg-[#262830] hover:bg-[#2e303b] border border-[#343744] hover:border-[#facc15]/40 p-2.5 rounded-xl transition-all text-left"
-            >
-              {activeAccount
-                ? <AvatarPill name={activeAccount.username} />
-                : <div className="w-9 h-9 rounded-xl bg-[#343744] flex items-center justify-center flex-shrink-0"><UserCircle size={18} className="text-gray-400" /></div>
-              }
-              <div className="min-w-0 flex-1">
-                <p className="font-extrabold text-xs text-white truncate">{activeAccount?.username ?? 'No account'}</p>
-                <p className="text-[10px] text-gray-400 capitalize">{activeAccount?.type ?? 'Add in Accounts'}</p>
-              </div>
-              <div className="w-2 h-2 rounded-full bg-[#facc15] flex-shrink-0" />
-            </button>
-
-            {showAccountSwitcher && accountData.accounts.length > 0 && (
-              <div className="absolute left-4 right-4 top-full mt-1 bg-[#16171d] border border-[#2c2e38] rounded-xl overflow-hidden z-20 shadow-xl animate-fade-in">
-                {accountData.accounts.map(acc => (
-                  <button key={acc.id} onClick={() => handleSetActiveAccount(acc.id)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[#1c1d22] transition-colors text-left">
-                    <AvatarPill name={acc.username} />
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{acc.username}</p>
-                      <p className="text-[10px] text-gray-500 capitalize">{acc.type}</p>
-                    </div>
-                    {acc.id === accountData.active_id && <div className="ml-auto w-2 h-2 rounded-full bg-[#facc15]" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Friends */}
-          <div className="bg-[#1c1d22] border border-[#2c2e38] rounded-2xl p-4">
-            <div className="flex items-center gap-1.5 mb-3">
-              <Users size={12} className="text-gray-400" />
-              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">Friends</h4>
-            </div>
-            <div className="space-y-1.5">
-              {[
-                { name: 'Geometrically', status: 'Playing Cobblemon', online: true },
-                { name: 'triphora',      status: 'In Menus',          online: true },
-                { name: 'Minenash',      status: 'Offline',           online: false },
-                { name: 'coolbot100s',   status: 'Playing Vanilla',   online: true },
-              ].map(friend => (
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {announcements.length > 1 && (
+            <div className="flex items-center gap-1 bg-black/30 p-1 rounded-xl border border-white/5">
+              {announcements.map((_, i) => (
                 <button
-                  key={friend.name}
-                  onClick={() => onStartChat?.(friend.name)}
-                  className="w-full flex items-center gap-2.5 hover:bg-[#262830] p-1.5 rounded-xl transition-all text-left group"
-                  title={`Chat with ${friend.name}`}
-                >
-                  <div className="relative flex-shrink-0">
-                    <AvatarPill name={friend.name} />
-                    <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#1c1d22] ${friend.online ? 'bg-[#facc15]' : 'bg-gray-600'}`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-xs text-white truncate group-hover:text-[#facc15] transition-colors">{friend.name}</p>
-                    <p className="text-[10px] text-gray-500 truncate leading-tight">{friend.status}</p>
-                  </div>
-                </button>
+                  key={i}
+                  onClick={() => setActiveAnnouncementIdx(i)}
+                  className={`w-2 h-2 rounded-full transition-all ${i === activeAnnouncementIdx ? 'bg-[#facc15] w-4' : 'bg-gray-600'}`}
+                />
               ))}
             </div>
-          </div>
+          )}
+        </div>
+      </div>
 
-          {/* News */}
-          <div className="bg-[#1c1d22] border border-[#2c2e38] rounded-2xl p-4">
-            <div className="flex items-center gap-1.5 mb-3">
-              <Newspaper size={12} className="text-gray-400" />
-              <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">News</h4>
+      {/* Header with Title & Action Buttons */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            Revival Dashboard
+            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/20">
+              v1.0
+            </span>
+          </h1>
+          <p className="text-xs text-gray-400 font-medium mt-0.5">Quickly launch, manage, and customize your Minecraft instances</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-3.5 py-2 rounded-xl bg-[#16171d] border border-[#2c2e38] text-gray-300 font-bold text-xs hover:border-[#facc15]/40 hover:text-white transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            <Upload size={13} /> Import .mrpack / Zip
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 rounded-xl bg-[#facc15] hover:bg-yellow-300 text-black font-black text-xs shadow-md shadow-yellow-500/20 flex items-center gap-1.5 transition-all active:scale-95"
+          >
+            <Plus size={14} /> New Instance
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Play Banner */}
+      <div className="relative bg-gradient-to-r from-[#1b170c] via-[#221c0e] to-[#121318] border border-[#facc15]/20 rounded-3xl p-6 overflow-hidden shadow-xl min-h-[130px] flex flex-col justify-between">
+        <div className="absolute top-0 right-0 w-80 h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#facc15]/10 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="relative z-10 flex items-start justify-between">
+          <div>
+            <span className="bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/20 font-black text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 w-max">
+              <Flame size={12} className="text-[#facc15]" /> Ready to Play
+            </span>
+            <h2 className="text-xl font-black text-white mt-1.5 leading-tight">Instant Modded Minecraft</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Fabric, Forge, Quilt, NeoForge & Vanilla with custom menus and mods.</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-[#262832] border border-[#3a3d4d] flex items-center justify-center text-[#facc15] shadow-lg">
+            <Swords size={24} />
+          </div>
+        </div>
+
+        <div className="relative z-10 flex gap-2.5 mt-3">
+          <button
+            onClick={() => {
+              const latest = instances[0];
+              if (latest) handleLaunch(latest.name);
+              else setShowCreateModal(true);
+            }}
+            className="px-5 py-2.5 bg-[#facc15] hover:bg-yellow-300 text-black font-black text-xs rounded-xl shadow-md shadow-yellow-500/20 transition-all active:scale-95 flex items-center gap-1.5"
+          >
+            <Play size={13} fill="currentColor" /> {instances[0] ? `Play "${instances[0].name}"` : 'Create First Instance'}
+          </button>
+        </div>
+      </div>
+
+      {/* Instances Grid */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-black text-sm text-white flex items-center gap-2">
+            <span>Installed Instances</span>
+            <span className="text-[10px] font-bold text-gray-500 bg-[#16171d] px-2 py-0.5 rounded-md border border-[#2c2e38]">
+              {instances.length}
+            </span>
+          </h3>
+          <button
+            onClick={fetchInstances}
+            className="text-[10px] text-gray-400 hover:text-gray-200 font-bold uppercase flex items-center gap-1 transition-colors"
+          >
+            Refresh <RefreshCw size={10} className={loading ? 'animate-spin text-[#facc15]' : ''} />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[1, 2].map(n => <div key={n} className="h-20 bg-[#16171d] border border-[#2c2e38] rounded-2xl animate-pulse" />)}
+          </div>
+        ) : instances.length === 0 ? (
+          <div className="bg-[#16171d]/60 border border-[#2c2e38] rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#20222a] border border-[#343744] flex items-center justify-center text-gray-400">
+              <Package size={26} />
             </div>
-            <div className="space-y-2">
-              {NEWS_ITEMS.map(item => (
-                <button key={item.title}
-                  onClick={() => (window as any).electronAPI?.invoke('open_url', { url: item.url })}
-                  className="block w-full text-left bg-[#24262f] hover:bg-[#2a2c38] border border-[#343744] hover:border-[#facc15]/40 rounded-xl p-3 transition-all group">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-extrabold text-[#facc15] uppercase tracking-wider">{item.tag}</span>
-                    <span className="text-[10px] text-gray-500">{item.date}</span>
-                  </div>
-                  <h5 className="font-extrabold text-xs text-white group-hover:text-[#facc15] transition-colors leading-tight">{item.title}</h5>
-                  <p className="text-[10px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">{item.body}</p>
-                </button>
-              ))}
+            <div>
+              <p className="font-extrabold text-sm text-white">No instances installed yet</p>
+              <p className="text-xs text-gray-400 mt-0.5">Create your first custom instance or import a pack from Modrinth/CurseForge!</p>
+            </div>
+            <div className="flex gap-2 mt-1 w-full max-w-xs">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex-1 py-2.5 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-xs rounded-xl transition-all shadow-md"
+              >
+                Create New Instance
+              </button>
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex-1 py-2.5 bg-[#20222a] border border-[#2c2e38] text-gray-300 font-bold text-xs hover:border-[#facc15]/40 hover:text-white transition-all rounded-xl"
+              >
+                Import Pack
+              </button>
             </div>
           </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {instances.map((inst, idx) => {
+              const isRunning = runningInstances.has(inst.name);
+              return (
+                <div
+                  key={idx}
+                  className={`border rounded-2xl p-3.5 flex items-center justify-between transition-all group cursor-pointer shadow-md ${
+                    isRunning
+                      ? 'bg-[#facc15]/5 border-[#facc15]/40 ring-1 ring-[#facc15]/20'
+                      : 'bg-[#15161c] border-[#2c2e38] hover:border-[#facc15]/50 hover:bg-[#1a1b22]'
+                  }`}
+                  onClick={(e) => {
+                    const t = e.target as HTMLElement;
+                    if (t.closest('button') || t.closest('[role="menu"]')) return;
+                    if (_onSelectInstance) _onSelectInstance(inst);
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-11 h-11 rounded-2xl bg-[#20222a] border border-[#343744] flex items-center justify-center text-xl shadow-md group-hover:scale-105 transition-transform">
+                        <LoaderIconComp loader={inst.loader} />
+                      </div>
+                      {isRunning && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#facc15] ring-2 ring-[#15161c] animate-pulse" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-black text-sm text-white truncate group-hover:text-[#facc15] transition-colors">{inst.name}</p>
+                        {isRunning && (
+                          <span className="text-[9px] font-black text-[#facc15] bg-[#facc15]/10 px-1.5 py-0.2 rounded border border-[#facc15]/20">
+                            RUNNING
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
+                        {inst.mc_version} · <span className="text-gray-300 font-bold">{inst.loader || 'Vanilla'}</span> · {inst.last_played ? new Date(inst.last_played).toLocaleDateString() : 'Never played'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                    <InstanceMenu
+                      instance={inst}
+                      onSettings={() => setActiveInstanceForSettings(inst)}
+                      onDuplicate={() => handleDuplicate(inst.name)}
+                      onDelete={() => handleDelete(inst.name)}
+                      onOpenFolder={() => handleOpenFolder(inst.name)}
+                    />
+
+                    {isRunning ? (
+                      <RunningButtons
+                        name={inst.name}
+                        onStop={() => handleStop(inst.name)}
+                        onKill={() => handleKill(inst.name)}
+                      />
+                    ) : (
+                      <button
+                        onClick={() => handleLaunch(inst.name)}
+                        className="p-2.5 rounded-xl bg-[#facc15] hover:bg-yellow-300 text-black font-black transition-all flex items-center justify-center shadow-md active:scale-95"
+                        title="Launch Instance"
+                      >
+                        <Play size={13} fill="currentColor" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Featured Packs Grid */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-black text-white flex items-center gap-1.5">
+            <Sparkles size={14} className="text-[#facc15]" />
+            Featured Modpacks
+          </h2>
+          <span className="text-xs text-[#facc15] font-bold">Modrinth & CurseForge Supported</span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { name: 'Cobblemon Official', iconComp: <Gamepad2 size={20} className="text-purple-400" />, desc: 'Pokémon inside Minecraft', tag: 'Fabric 1.20.1' },
+            { name: 'Origin Realms', iconComp: <Swords size={20} className="text-emerald-400" />, desc: 'Custom biomes & quests', tag: 'Vanilla / Fabric' },
+            { name: 'All of Fabric 6', iconComp: <Boxes size={20} className="text-sky-400" />, desc: 'Curated modpack experience', tag: 'Fabric 1.20.1' },
+            { name: 'Fabulously Optimized', iconComp: <Zap size={20} className="text-yellow-400" />, desc: 'OptiFine replacement pack', tag: 'Performance' },
+          ].map(pack => (
+            <div
+              key={pack.name}
+              className="bg-[#15161c] border border-[#2c2e38] hover:border-[#facc15]/40 rounded-2xl p-3.5 group cursor-pointer transition-all flex flex-col justify-between shadow-md"
+            >
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-[#20222a] border border-[#343744] flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                  {pack.iconComp}
+                </div>
+                <h4 className="font-black text-xs text-white group-hover:text-[#facc15] transition-colors">{pack.name}</h4>
+                <p className="text-[10px] text-gray-400 mt-1 line-clamp-2 leading-relaxed">{pack.desc}</p>
+              </div>
+              <div className="mt-3 pt-2 border-t border-[#2c2e38]/50 flex items-center justify-between">
+                <span className="text-[8.5px] font-bold text-gray-500 uppercase">{pack.tag}</span>
+                <ChevronRight size={12} className="text-gray-500 group-hover:text-[#facc15] transition-colors" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

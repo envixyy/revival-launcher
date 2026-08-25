@@ -26,4 +26,4 @@ $env:GH_REPO = 'your-repository-name'
 npm.cmd run dist
 ```
 
-The installers are written to `dist`. Share the **NSIS `.exe`** with regular users so future releases install automatically; share the MSI only when an MSI is specifically required.
+The installers are written to `release`. Share the **NSIS `.exe`** with regular users so future releases install automatically; share the MSI only when an MSI is specifically required.

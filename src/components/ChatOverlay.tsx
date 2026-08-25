@@ -1,169 +1,222 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, X } from 'lucide-react';
+import { Send, X, Trash2 } from 'lucide-react';
+import type { Friend } from './SocialSidebar';
+import { getBadgesForUser } from '../utils/badges';
+import { getSubscription } from '../utils/subscription';
+import { UserAvatar } from './UserAvatar';
+import { BadgePill } from './BadgePill';
 
 interface Message {
   id: string;
-  sender: 'me' | 'friend';
+  sender: 'me' | 'them';
   text: string;
-  timestamp: Date;
+  timestamp: number;
 }
 
 interface ChatOverlayProps {
-  friendName: string;
+  friend: Friend;
+  myUsername: string;
   onClose: () => void;
 }
 
-// Simulated responses depending on the friend
-const FRIEND_REPLIES: Record<string, string[]> = {
-  Geometrically: [
-    "Yo! Just got into Origin Realms. The biomes are crazy!",
-    "Wait, are you launching the instance now? Let's join the same server.",
-    "Give me 5 mins, fighting a dungeon boss.",
-    "I'm using the Fabric loader with Sodium, fps is smooth.",
-    "Awesome launcher design btw! Looks super clean."
-  ],
-  triphora: [
-    "Hey! Minecraft is loading right now, loading shaders takes a bit.",
-    "Let me know if you want to test my new custom modpack.",
-    "I'm testing neocraft. Are you online?",
-    "Just downloaded a custom pack from CurseForge. Runs perfect on Revival.",
-    "Add me on Discord if you want to join voice call!"
-  ],
-  coolbot100s: [
-    "Hey dude! Playing some survival on 1.21.1 vanilla.",
-    "Just created a copy of my main creative instance.",
-    "I love the yellow glow style of the launcher!",
-    "Can you send me your exported modpack zip?",
-    "Offline mode works perfectly, testing local multiplayer now."
-  ],
-  Minenash: [
-    "I'm offline right now, playing some singleplayer modded.",
-    "Making some textures for my next resource pack.",
-    "Let's play later, just finishing dinner.",
-    "Revival's new library grid view is so much better than lists."
-  ]
-};
+function getChatKey(me: string, them: string) {
+  const sorted = [me.toLowerCase(), them.toLowerCase()].sort();
+  return `revival_chat_${sorted[0]}_${sorted[1]}`;
+}
 
-export function ChatOverlay({ friendName, onClose }: ChatOverlayProps) {
+function loadMessages(me: string, them: string): Message[] {
+  try {
+    return JSON.parse(localStorage.getItem(getChatKey(me, them)) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(me: string, them: string, msgs: Message[]) {
+  const trimmed = msgs.slice(-500);
+  localStorage.setItem(getChatKey(me, them), JSON.stringify(trimmed));
+}
+
+export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize chat history with a greeting
+  const friendBadges = getBadgesForUser(friend.username);
+  const myBadges = getBadgesForUser(myUsername);
+  const friendSub = getSubscription(friend.username);
+  const mySub = getSubscription(myUsername);
+
+  // Load history on mount
   useEffect(() => {
-    const greeting = FRIEND_REPLIES[friendName]?.[0] ?? "Hey there! What's up?";
-    setMessages([
-      {
-        id: 'init',
-        sender: 'friend',
-        text: greeting,
-        timestamp: new Date()
-      }
-    ]);
-  }, [friendName]);
+    setMessages(loadMessages(myUsername, friend.username));
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, [friend.username, myUsername]);
 
+  // Auto scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  }, [messages]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    const text = inputText.trim();
+    if (!text) return;
 
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
+    const newMsg: Message = {
+      id: `${Date.now()}-${Math.random()}`,
       sender: 'me',
-      text: inputText.trim(),
-      timestamp: new Date()
+      text,
+      timestamp: Date.now(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    const updated = [...messages, newMsg];
+    setMessages(updated);
+    saveMessages(myUsername, friend.username, updated);
     setInputText('');
-
-    // Trigger simulated typing and reply
-    setIsTyping(true);
-    const replyDelay = 1000 + Math.random() * 1500;
-
-    setTimeout(() => {
-      const replies = FRIEND_REPLIES[friendName] || ["Nice!", "Cool!", "Yeah!", "I see."];
-      const randomReply = replies[Math.floor(Math.random() * replies.length)];
-      
-      const friendMsg: Message = {
-        id: `friend-${Date.now()}`,
-        sender: 'friend',
-        text: randomReply,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, friendMsg]);
-      setIsTyping(false);
-    }, replyDelay);
   };
 
+  const handleClear = () => {
+    if (!confirm(`Clear conversation history with ${friend.displayName}?`)) return;
+    localStorage.removeItem(getChatKey(myUsername, friend.username));
+    setMessages([]);
+  };
+
+  const fmt = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const fmtDate = (ts: number) => new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+  let lastDateStr = '';
+
   return (
-    <div className="fixed bottom-4 right-80 w-80 h-96 bg-[#16171d] border border-[#facc15]/30 rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-fade-in">
+    <div className="fixed bottom-4 right-[270px] w-84 h-[440px] bg-[#14151b] border border-[#facc15]/30 rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-fade-in">
       {/* Header */}
-      <div className="bg-[#0e0f13] border-b border-[#2c2e38] px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#facc15] animate-pulse" />
+      <div className="bg-[#0c0d11] border-b border-[#2c2e38] px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <UserAvatar
+            avatarKeyOrUrl={friend.avatar}
+            name={friend.displayName}
+            size="sm"
+            isSubscribed={friendSub.active}
+          />
           <div>
-            <h4 className="font-extrabold text-xs text-white leading-none">{friendName}</h4>
-            <p className="text-[9px] text-gray-500 mt-1">Direct Messages</p>
+            <div className="flex items-center gap-1.5">
+              <h4 className="font-black text-xs text-white leading-none">{friend.displayName}</h4>
+              {friendBadges[0] && (
+                <BadgePill badge={friendBadges[0]} size="sm" />
+              )}
+            </div>
+            <p className="text-[9px] text-[#facc15] mt-0.5 font-bold">@{friend.username} · Online</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={onClose} className="p-1 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleClear}
+            title="Clear conversation"
+            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500 hover:text-red-400 transition-colors"
+          >
+            <Trash2 size={12} />
+          </button>
+          <button onClick={onClose} className="p-1.5 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
             <X size={14} />
           </button>
         </div>
       </div>
 
-      {/* Message List */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3 bg-[#111216]/50">
-        {messages.map(msg => (
-          <div
-            key={msg.id}
-            className={`flex flex-col max-w-[80%] ${msg.sender === 'me' ? 'ml-auto items-end' : 'mr-auto items-start'}`}
-          >
-            <div className={`p-2.5 rounded-2xl text-[11px] font-semibold leading-relaxed shadow-sm ${
-              msg.sender === 'me'
-                ? 'bg-[#facc15] text-black rounded-tr-none font-bold'
-                : 'bg-[#1c1d22] border border-[#2c2e38] text-gray-200 rounded-tl-none'
-            }`}>
-              {msg.text}
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 space-y-2 bg-[#0e0f14]/80">
+        {messages.length === 0 && (
+          <div className="h-full flex flex-col items-center justify-center gap-2 text-center py-6">
+            <UserAvatar
+              avatarKeyOrUrl={friend.avatar}
+              name={friend.displayName}
+              size="lg"
+              isSubscribed={friendSub.active}
+            />
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-black text-white">{friend.displayName}</p>
+              {friendBadges[0] && (
+                <BadgePill badge={friendBadges[0]} size="sm" />
+              )}
             </div>
-            <span className="text-[8px] text-gray-600 mt-1 px-1">
-              {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-        ))}
-        {isTyping && (
-          <div className="flex flex-col mr-auto items-start max-w-[80%]">
-            <div className="bg-[#1c1d22] border border-[#2c2e38] p-2.5 rounded-2xl rounded-tl-none flex gap-1 items-center">
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
+            <p className="text-[10px] text-gray-400 max-w-[200px] leading-relaxed">
+              This is the start of your direct conversation. Say hello!
+            </p>
           </div>
         )}
+
+        {messages.map((msg, idx) => {
+          const dateStr = fmtDate(msg.timestamp);
+          const showDate = dateStr !== lastDateStr;
+          lastDateStr = dateStr;
+
+          const isMe = msg.sender === 'me';
+          const senderBadges = isMe ? myBadges : friendBadges;
+          const senderAvatar = isMe ? (localStorage.getItem('revival_user') ? JSON.parse(localStorage.getItem('revival_user')!).avatar : 'crown') : friend.avatar;
+          const senderName = isMe ? 'You' : friend.displayName;
+          const isSenderSubscribed = isMe ? mySub.active : friendSub.active;
+
+          return (
+            <div key={msg.id}>
+              {showDate && (
+                <div className="flex items-center gap-2 my-2.5">
+                  <div className="flex-1 h-px bg-[#2c2e38]" />
+                  <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">{dateStr}</span>
+                  <div className="flex-1 h-px bg-[#2c2e38]" />
+                </div>
+              )}
+              <div className={`flex flex-col max-w-[85%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
+                {/* Sender tag with avatar and badges */}
+                {(idx === 0 || messages[idx - 1]?.sender !== msg.sender) && (
+                  <div className="flex items-center gap-1.5 mb-1 px-1">
+                    <UserAvatar
+                      avatarKeyOrUrl={senderAvatar}
+                      name={senderName}
+                      size="sm"
+                      isSubscribed={isSenderSubscribed}
+                      className="w-4 h-4 rounded text-[8px]"
+                    />
+                    <span className="text-[8.5px] font-black text-gray-400">
+                      {senderName}
+                    </span>
+                    {senderBadges[0] && (
+                      <BadgePill badge={senderBadges[0]} size="sm" />
+                    )}
+                  </div>
+                )}
+
+                <div className={`px-3 py-2 rounded-2xl text-[11px] font-medium leading-relaxed shadow-md ${
+                  isMe
+                    ? 'bg-[#facc15] text-black font-semibold rounded-tr-sm'
+                    : 'bg-[#1a1b22] border border-[#2c2e38] text-gray-100 rounded-tl-sm'
+                }`}>
+                  {msg.text}
+                </div>
+                <span className="text-[8px] text-gray-500 mt-0.5 px-1">{fmt(msg.timestamp)}</span>
+              </div>
+            </div>
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSend} className="p-3 bg-[#0e0f13] border-t border-[#2c2e38] flex gap-2">
+      <form onSubmit={handleSend} className="p-2.5 bg-[#0c0d11] border-t border-[#2c2e38] flex gap-2 flex-shrink-0">
         <input
+          ref={inputRef}
           type="text"
           value={inputText}
           onChange={e => setInputText(e.target.value)}
-          placeholder={`Message ${friendName}...`}
-          className="flex-1 bg-[#1c1d22] border border-[#2c2e38] rounded-xl px-3 py-2 text-[11px] text-white outline-none focus:border-[#facc15]/50 transition-all"
+          placeholder={`Message ${friend.displayName}...`}
+          className="flex-1 bg-[#181920] border border-[#2c2e38] rounded-xl px-3 py-2 text-[11px] text-white outline-none focus:border-[#facc15] transition-all font-medium"
         />
         <button
           type="submit"
-          className="p-2 bg-[#facc15] text-black rounded-xl hover:bg-yellow-300 transition-all flex-shrink-0"
+          disabled={!inputText.trim()}
+          className="p-2 bg-[#facc15] text-black rounded-xl hover:bg-yellow-300 transition-all flex-shrink-0 disabled:opacity-40 shadow-sm"
         >
-          <Send size={12} />
+          <Send size={13} />
         </button>
       </form>
     </div>

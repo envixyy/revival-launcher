@@ -12,6 +12,8 @@ import { ChatOverlay } from './components/ChatOverlay';
 import { TitleBar } from './components/TitleBar';
 import { CreateInstanceModal } from './components/CreateInstanceModal';
 import { ImportModal } from './components/ImportModal';
+import { SocialSidebar } from './components/SocialSidebar';
+import type { Friend } from './components/SocialSidebar';
 import { safeInvoke } from './utils/tauri';
 import { applyTheme } from './utils/theme';
 
@@ -43,19 +45,22 @@ function App() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Authentication & Chat overlay states
-  const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string; avatar: string } | null>(null);
-  const [activeChatFriend, setActiveChatFriend] = useState<string | null>(null);
+  // Authentication & Chat overlay states (Persists 1-time login permanently)
+  const [currentUser, setCurrentUser] = useState<{ username: string; displayName: string; avatar: string } | null>(() => {
+    try {
+      const saved = localStorage.getItem('revival_user');
+      if (saved) return JSON.parse(saved);
+      // Persistent default account on 1st run
+      const defaultUser = { username: 'vix', displayName: 'vix', avatar: 'crown' };
+      localStorage.setItem('revival_user', JSON.stringify(defaultUser));
+      return defaultUser;
+    } catch {
+      return { username: 'vix', displayName: 'vix', avatar: 'crown' };
+    }
+  });
+  const [activeChatFriend, setActiveChatFriend] = useState<Friend | null>(null);
 
   useEffect(() => {
-    // Check if user is logged in
-    const saved = localStorage.getItem('revival_user');
-    if (saved) {
-      try {
-        setCurrentUser(JSON.parse(saved));
-      } catch {}
-    }
-
     const fetchConfig = async () => {
       try {
         const cfg = await safeInvoke<any>('load_config');
@@ -144,7 +149,6 @@ function App() {
                 navigateTo('instance-view');
               }}
               onLaunch={handleLaunch}
-              onStartChat={setActiveChatFriend}
             />
           )}
           {activeTab === 'library' && (
@@ -167,6 +171,10 @@ function App() {
             <ProfileTab
               user={currentUser}
               onUpdateUser={setCurrentUser}
+              onSignOut={() => {
+                localStorage.removeItem('revival_user');
+                setCurrentUser(null);
+              }}
             />
           )}
           {activeTab === 'instance-view' && selectedInstance && (
@@ -181,6 +189,16 @@ function App() {
             <SettingsTab config={config} onSaveConfig={handleSaveConfig} />
           )}
         </main>
+
+        <SocialSidebar
+          user={currentUser}
+          onStartChat={setActiveChatFriend}
+          onSignOut={() => {
+            localStorage.removeItem('revival_user');
+            setCurrentUser(null);
+          }}
+          onNavigateToTab={navigateTo}
+        />
       </div>
 
       {showCreateModal && (
@@ -211,7 +229,8 @@ function App() {
       {/* Floating Chat Overlay */}
       {activeChatFriend && (
         <ChatOverlay
-          friendName={activeChatFriend}
+          friend={activeChatFriend}
+          myUsername={currentUser.username}
           onClose={() => setActiveChatFriend(null)}
         />
       )}

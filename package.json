@@ -3,7 +3,7 @@
   "description": "Revival Launcher for Minecraft instances and modpacks",
   "author": "Revival Launcher",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -26,10 +26,18 @@
     "appId": "com.revival.launcher",
     "productName": "Revival Launcher",
     "artifactName": "Revival-Launcher-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "electronLanguages": [
+      "en-US"
+    ],
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "!dist/win-unpacked{,/**/*}",
+      "!dist/*.{exe,msi,blockmap,yml}"
     ],
     "publish": [
       {

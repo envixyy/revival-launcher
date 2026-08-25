@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { User, Lock, Mail, Shield, CheckCircle, ArrowRight } from 'lucide-react';
 import logoImg from '../assets/logo.png';
+import { ICON_AVATARS } from './UserAvatar';
 
 interface AuthScreenProps {
   onAuthSuccess: (user: { username: string; displayName: string; avatar: string }) => void;
 }
 
-const AVATARS = [
-  '🦁', '🦊', '🐻', '🐼', '🐨', '🐯', '🐰', '🦄', '🐙', '🦖'
-];
+const AVATAR_KEYS = ['crown', 'swords', 'zap', 'gamepad', 'shield', 'flame', 'sparkles', 'terminal', 'bot', 'rocket'];
 
 export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -16,7 +15,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
+  const [selectedAvatar, setSelectedAvatar] = useState('crown');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -41,7 +40,6 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         localStorage.setItem('revival_user', JSON.stringify(newUser));
         onAuthSuccess(newUser);
       } else {
-        // Simple mock login logic
         const saved = localStorage.getItem('revival_user');
         if (saved) {
           const user = JSON.parse(saved);
@@ -51,22 +49,20 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             return;
           }
         }
-        // Fallback or default user if nothing saved
         const defaultUser = {
           username: username.toLowerCase().trim(),
           displayName: username,
-          avatar: AVATARS[0],
+          avatar: 'crown',
         };
         localStorage.setItem('revival_user', JSON.stringify(defaultUser));
         onAuthSuccess(defaultUser);
       }
       setLoading(false);
-    }, 800);
+    }, 600);
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#111216]">
-      {/* Background patterns */}
       <div className="absolute inset-0 bg-radial-gradient from-[#facc15]/5 to-transparent pointer-events-none" />
 
       <div className="w-full max-w-md bg-[#16171d] border border-[#2c2e38] rounded-3xl p-8 shadow-2xl relative overflow-hidden">
@@ -77,7 +73,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             revival<span className="text-[#facc15]">network</span>
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            {mode === 'login' ? 'Sign in to connect with friends' : 'Create your launcher account'}
+            {mode === 'login' ? 'Sign in to connect with friends & play' : 'Create your launcher account'}
           </p>
         </div>
 
@@ -162,23 +158,29 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           {mode === 'register' && (
             <div>
               <label className="block text-[10px] font-extrabold uppercase tracking-wider text-gray-400 mb-1.5">
-                Choose Avatar Character
+                Choose Vector Avatar Icon
               </label>
-              <div className="flex flex-wrap gap-2.5 p-2 bg-[#1c1d22] border border-[#2c2e38] rounded-xl justify-center">
-                {AVATARS.map(av => (
-                  <button
-                    key={av}
-                    type="button"
-                    onClick={() => setSelectedAvatar(av)}
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl transition-all ${
-                      selectedAvatar === av
-                        ? 'bg-[#facc15] shadow-md shadow-yellow-500/25 scale-110'
-                        : 'hover:bg-white/5'
-                    }`}
-                  >
-                    {av}
-                  </button>
-                ))}
+              <div className="flex flex-wrap gap-2 p-2 bg-[#1c1d22] border border-[#2c2e38] rounded-xl justify-center">
+                {AVATAR_KEYS.map(key => {
+                  const item = ICON_AVATARS[key];
+                  const IconComp = item.icon;
+                  const isSelected = selectedAvatar === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedAvatar(key)}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${item.bg} ${
+                        isSelected
+                          ? 'ring-2 ring-[#facc15] shadow-md shadow-yellow-500/25 scale-110'
+                          : 'hover:scale-105 opacity-60 hover:opacity-100'
+                      }`}
+                      title={item.label}
+                    >
+                      <IconComp size={16} />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -186,7 +188,7 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[#facc15] hover:bg-[#fde047] text-black font-extrabold rounded-2xl text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg shadow-yellow-500/10"
+            className="w-full py-3 bg-[#facc15] hover:bg-[#fde047] text-black font-extrabold rounded-2xl text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg shadow-yellow-500/10 active:scale-95"
           >
             {loading ? (
               'Processing...'
