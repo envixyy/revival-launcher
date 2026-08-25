@@ -4,7 +4,7 @@ import {
   UserCheck, Settings, UserPlus, X, Check, Gamepad2, User as UserIcon
 } from 'lucide-react';
 import { safeInvoke } from '../utils/tauri';
-import { getBadgesForUser, BadgeRole, saveBadgesForUser } from '../utils/badges';
+import { getBadgesForUser, BadgeRole, saveBadgesForUser, getRoleTag } from '../utils/badges';
 import { getSubscription } from '../utils/subscription';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
@@ -162,6 +162,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
   const activeMcAccount = mcAccounts.accounts.find(a => a.id === mcAccounts.active_id);
   const myBadges = getBadgesForUser(user.username);
   const mySub = getSubscription(user.username);
+  const myRoleTag = getRoleTag(user.username);
 
   return (
     <div className="w-64 h-full bg-[#0d0e12] border-l border-[#1e2028] flex flex-col select-none flex-shrink-0 overflow-hidden">
@@ -183,6 +184,11 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
+                {myRoleTag && (
+                  <span className={`text-[10px] font-black uppercase ${myRoleTag.colorClass}`}>
+                    {myRoleTag.tag}
+                  </span>
+                )}
                 <h4 className="font-black text-xs text-white truncate leading-tight">{user.displayName}</h4>
                 {myBadges.slice(0, 2).map(b => (
                   <BadgePill key={b.role} badge={b} size="sm" />
@@ -291,6 +297,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
               friends.map(friend => {
                 const fBadges = getBadgesForUser(friend.username);
                 const fSub = getSubscription(friend.username);
+                const fRoleTag = getRoleTag(friend.username);
 
                 return (
                   <div
@@ -311,6 +318,11 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1 min-w-0">
+                          {fRoleTag && (
+                            <span className={`text-[9px] font-black uppercase flex-shrink-0 ${fRoleTag.colorClass}`}>
+                              {fRoleTag.tag}
+                            </span>
+                          )}
                           <p className="font-extrabold text-xs text-white truncate group-hover:text-[#facc15] transition-colors">
                             {friend.displayName}
                           </p>

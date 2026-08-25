@@ -77,8 +77,9 @@ export const BADGE_DEFS: Record<BadgeRole, Badge> = {
 };
 
 const DEFAULT_ROLE_MAP: Record<string, BadgeRole[]> = {
+  envixyy: ['owner', 'developer', 'admin', 'plus'],
   vix: ['owner', 'developer', 'admin', 'plus'],
-  revival: ['owner', 'plus'],
+  revival: ['owner', 'developer', 'plus'],
   developer: ['developer'],
   admin: ['admin'],
   moderator: ['moderator'],
@@ -87,8 +88,9 @@ const DEFAULT_ROLE_MAP: Record<string, BadgeRole[]> = {
 export function getBadgesForUser(username: string): Badge[] {
   if (!username) return [BADGE_DEFS.early_access];
   
+  const lower = username.toLowerCase().trim();
   try {
-    const saved = localStorage.getItem(`revival_badges_${username.toLowerCase()}`);
+    const saved = localStorage.getItem(`revival_badges_${lower}`);
     if (saved) {
       const roles: BadgeRole[] = JSON.parse(saved);
       if (Array.isArray(roles) && roles.length > 0) {
@@ -97,14 +99,14 @@ export function getBadgesForUser(username: string): Badge[] {
     }
   } catch {}
 
-  const defaultRoles = DEFAULT_ROLE_MAP[username.toLowerCase()] || ['owner', 'developer', 'plus'];
+  const defaultRoles = DEFAULT_ROLE_MAP[lower] || ['early_access'];
   return defaultRoles.map(r => BADGE_DEFS[r]).filter(Boolean);
 }
 
 export function saveBadgesForUser(username: string, roles: BadgeRole[]) {
   if (!username) return;
   try {
-    localStorage.setItem(`revival_badges_${username.toLowerCase()}`, JSON.stringify(roles));
+    localStorage.setItem(`revival_badges_${username.toLowerCase().trim()}`, JSON.stringify(roles));
   } catch {}
 }
 
@@ -112,4 +114,29 @@ export function isAdminOrOwner(username: string): boolean {
   if (!username) return false;
   const badges = getBadgesForUser(username);
   return badges.some(b => b.role === 'owner' || b.role === 'admin' || b.role === 'developer');
+}
+
+export function getRoleTag(username: string): { tag: string; colorClass: string; role: BadgeRole } | null {
+  if (!username) return null;
+  const badges = getBadgesForUser(username);
+  if (badges.some(b => b.role === 'owner')) {
+    return { tag: '[Owner]', colorClass: 'text-amber-400 font-black tracking-wide', role: 'owner' };
+  }
+  if (badges.some(b => b.role === 'developer')) {
+    return { tag: '[Dev]', colorClass: 'text-cyan-400 font-black tracking-wide', role: 'developer' };
+  }
+  if (badges.some(b => b.role === 'admin')) {
+    return { tag: '[Admin]', colorClass: 'text-rose-400 font-black tracking-wide', role: 'admin' };
+  }
+  if (badges.some(b => b.role === 'moderator')) {
+    return { tag: '[Mod]', colorClass: 'text-purple-400 font-black tracking-wide', role: 'moderator' };
+  }
+  return null;
+}
+
+export function formatDisplayNameWithTag(displayName: string, username: string): string {
+  const roleTag = getRoleTag(username);
+  if (!roleTag) return displayName;
+  const cleanName = displayName.replace(/^\[(Owner|Dev|Admin|Mod)\]\s*/i, '').trim();
+  return `${roleTag.tag} ${cleanName}`;
 }

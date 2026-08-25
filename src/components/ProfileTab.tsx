@@ -4,7 +4,7 @@ import {
   Image as ImageIcon, Upload, Star, CheckCircle, ShieldAlert,
   Crown, Zap
 } from 'lucide-react';
-import { BADGE_DEFS, BadgeRole, getBadgesForUser, saveBadgesForUser, isAdminOrOwner } from '../utils/badges';
+import { BADGE_DEFS, BadgeRole, getBadgesForUser, saveBadgesForUser, isAdminOrOwner, getRoleTag } from '../utils/badges';
 import {
   getSubscription, saveSubscription, grantSubscription,
   SUBSCRIPTION_TIERS, SubscriptionTier, canUseCustomImages
@@ -153,6 +153,7 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
   };
 
   const activeBadges = selectedRoles.map(r => BADGE_DEFS[r]).filter(Boolean);
+  const myRoleTag = getRoleTag(user.username);
 
   return (
     <div className="animate-fade-in space-y-6 max-w-4xl pb-10">
@@ -180,6 +181,11 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
 
           <div className="pb-1 min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-1">
+              {myRoleTag && (
+                <span className={`text-xs font-black uppercase px-2.5 py-0.5 rounded-lg bg-black/50 border border-white/10 ${myRoleTag.colorClass}`}>
+                  {myRoleTag.tag}
+                </span>
+              )}
               <h1 className="text-2xl font-black text-white leading-tight truncate">
                 {displayName || user.username}
               </h1>

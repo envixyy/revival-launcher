@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, X, Trash2 } from 'lucide-react';
 import type { Friend } from './SocialSidebar';
-import { getBadgesForUser } from '../utils/badges';
+import { getBadgesForUser, getRoleTag } from '../utils/badges';
 import { getSubscription } from '../utils/subscription';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
@@ -47,6 +47,8 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
   const myBadges = getBadgesForUser(myUsername);
   const friendSub = getSubscription(friend.username);
   const mySub = getSubscription(myUsername);
+  const friendRoleTag = getRoleTag(friend.username);
+  const myRoleTag = getRoleTag(myUsername);
 
   // Load history on mount
   useEffect(() => {
@@ -101,6 +103,11 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
           />
           <div>
             <div className="flex items-center gap-1.5">
+              {friendRoleTag && (
+                <span className={`text-[10px] font-black uppercase ${friendRoleTag.colorClass}`}>
+                  {friendRoleTag.tag}
+                </span>
+              )}
               <h4 className="font-black text-xs text-white leading-none">{friend.displayName}</h4>
               {friendBadges[0] && (
                 <BadgePill badge={friendBadges[0]} size="sm" />
@@ -135,6 +142,11 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
               isSubscribed={friendSub.active}
             />
             <div className="flex items-center gap-1.5">
+              {friendRoleTag && (
+                <span className={`text-[10px] font-black uppercase ${friendRoleTag.colorClass}`}>
+                  {friendRoleTag.tag}
+                </span>
+              )}
               <p className="text-xs font-black text-white">{friend.displayName}</p>
               {friendBadges[0] && (
                 <BadgePill badge={friendBadges[0]} size="sm" />
@@ -156,6 +168,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
           const senderAvatar = isMe ? (localStorage.getItem('revival_user') ? JSON.parse(localStorage.getItem('revival_user')!).avatar : 'crown') : friend.avatar;
           const senderName = isMe ? 'You' : friend.displayName;
           const isSenderSubscribed = isMe ? mySub.active : friendSub.active;
+          const senderRoleTag = isMe ? myRoleTag : friendRoleTag;
 
           return (
             <div key={msg.id}>
@@ -167,7 +180,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
                 </div>
               )}
               <div className={`flex flex-col max-w-[85%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
-                {/* Sender tag with avatar and badges */}
+                {/* Sender tag with avatar, role tag, and badges */}
                 {(idx === 0 || messages[idx - 1]?.sender !== msg.sender) && (
                   <div className="flex items-center gap-1.5 mb-1 px-1">
                     <UserAvatar
@@ -177,6 +190,11 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
                       isSubscribed={isSenderSubscribed}
                       className="w-4 h-4 rounded text-[8px]"
                     />
+                    {senderRoleTag && (
+                      <span className={`text-[8.5px] font-black uppercase ${senderRoleTag.colorClass}`}>
+                        {senderRoleTag.tag}
+                      </span>
+                    )}
                     <span className="text-[8.5px] font-black text-gray-400">
                       {senderName}
                     </span>

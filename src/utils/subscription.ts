@@ -74,9 +74,9 @@ export function getSubscription(username: string): UserSubscription {
     }
   } catch {}
 
-  // Owners & vix get Plus+ by default
+  // Owners & envixyy get Pro+ by default
   const lower = username.toLowerCase();
-  if (lower === 'vix' || lower === 'revival' || lower === 'admin') {
+  if (lower === 'envixyy' || lower === 'vix' || lower === 'revival' || lower === 'admin') {
     return {
       username,
       active: true,
