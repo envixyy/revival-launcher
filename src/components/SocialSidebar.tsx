@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   LogOut, Users, MessageSquare, ChevronDown, RefreshCw,
   UserCheck, Settings, UserPlus, X, Check, Gamepad2,
-  Search, Globe, Crown, CheckCircle2, Clock, Inbox
+  Search, Globe, Crown, CheckCircle2, Clock, Inbox, Eye
 } from 'lucide-react';
 import { safeInvoke } from '../utils/tauri';
 import { getBadgesForUser, BadgeRole, BADGE_DEFS, getRoleTag } from '../utils/badges';
@@ -14,6 +14,7 @@ import {
 } from '../utils/userCatalog';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
+import { UserProfileModal } from './UserProfileModal';
 
 export interface Friend {
   username: string;
@@ -75,6 +76,9 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
   const [roleModalUser, setRoleModalUser] = useState<CatalogUser | Friend | null>(null);
   const [selectedRolesToAssign, setSelectedRolesToAssign] = useState<BadgeRole[]>([]);
   const [roleAssignedSuccess, setRoleAssignedSuccess] = useState(false);
+
+  // Profile viewing state
+  const [profileUser, setProfileUser] = useState<{ username: string; displayName: string; avatar: string } | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isOwner = canAssignRoles(user.username);
@@ -379,6 +383,13 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
 
                         {/* Action buttons */}
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={e => { e.stopPropagation(); setProfileUser({ username: friend.username, displayName: friend.displayName, avatar: friend.avatar }); }}
+                            className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-[#facc15] transition-colors"
+                            title="View Profile"
+                          >
+                            <Eye size={11} />
+                          </button>
                           {isOwner && (
                             <button
                               onClick={e => openRoleModal(friend, e)}
@@ -492,6 +503,13 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                       <span className="truncate text-yellow-300/80 font-medium">🎮 {target.activity || target.status}</span>
 
                       <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => setProfileUser({ username: target.username, displayName: target.displayName, avatar: target.avatar })}
+                          className="px-1.5 py-0.5 rounded bg-white/5 text-gray-400 hover:bg-white/10 hover:text-[#facc15] text-[8.5px] font-black flex items-center gap-0.5 transition-all"
+                          title="View Profile"
+                        >
+                          <Eye size={9} />
+                        </button>
                         {isOwner && (
                           <button
                             onClick={() => openRoleModal(target)}
@@ -683,6 +701,25 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
           </div>
         )}
       </div>
+
+      {/* User Profile Card Modal */}
+      {profileUser && (
+        <UserProfileModal
+          username={profileUser.username}
+          displayName={profileUser.displayName}
+          avatar={profileUser.avatar}
+          onClose={() => setProfileUser(null)}
+          onStartChat={() => {
+            onStartChat({
+              username: profileUser.username,
+              displayName: profileUser.displayName,
+              avatar: profileUser.avatar,
+              addedAt: Date.now(),
+            });
+            setProfileUser(null);
+          }}
+        />
+      )}
     </div>
   );
 }

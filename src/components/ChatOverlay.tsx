@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, X, Trash2 } from 'lucide-react';
+import { Send, X, Trash2, User } from 'lucide-react';
 import type { Friend } from './SocialSidebar';
 import { getBadgesForUser, getRoleTag } from '../utils/badges';
 import { getSubscription } from '../utils/subscription';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
+import { UserProfileModal } from './UserProfileModal';
 
 interface Message {
   id: string;
-  sender: 'me' | 'them';
+  sender: string; // actual username of the sender
   text: string;
   timestamp: number;
 }
@@ -40,6 +41,7 @@ function saveMessages(me: string, them: string, msgs: Message[]) {
 export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const [showProfile, setShowProfile] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +58,33 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
     setTimeout(() => inputRef.current?.focus(), 50);
   }, [friend.username, myUsername]);
 
+  // Live sync: poll localStorage every 1.5s for new messages from the other user
+  useEffect(() => {
+    const chatKey = getChatKey(myUsername, friend.username);
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === chatKey) {
+        setMessages(loadMessages(myUsername, friend.username));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also poll for same-window changes (storage events don't fire within the same context)
+    const interval = setInterval(() => {
+      const fresh = loadMessages(myUsername, friend.username);
+      setMessages(prev => {
+        if (fresh.length !== prev.length) return fresh;
+        if (fresh.length > 0 && prev.length > 0 && fresh[fresh.length - 1]?.id !== prev[prev.length - 1]?.id) return fresh;
+        return prev;
+      });
+    }, 1500);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [friend.username, myUsername]);
+
   // Auto scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -68,7 +97,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
 
     const newMsg: Message = {
       id: `${Date.now()}-${Math.random()}`,
-      sender: 'me',
+      sender: myUsername, // Store actual username, not 'me'
       text,
       timestamp: Date.now(),
     };
@@ -94,7 +123,11 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
     <div className="fixed bottom-4 right-[270px] w-84 h-[440px] bg-[#14151b] border border-[#facc15]/30 rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-fade-in">
       {/* Header */}
       <div className="bg-[#0c0d11] border-b border-[#2c2e38] px-4 py-2.5 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2.5">
+        <div
+          className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => setShowProfile(true)}
+          title="View Profile"
+        >
           <UserAvatar
             avatarKeyOrUrl={friend.avatar}
             name={friend.displayName}
@@ -118,6 +151,13 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowProfile(true)}
+            title="View Profile"
+            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500 hover:text-[#facc15] transition-colors"
+          >
+            <User size={12} />
+          </button>
           <button
             onClick={handleClear}
             title="Clear conversation"
@@ -163,12 +203,19 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
           const showDate = dateStr !== lastDateStr;
           lastDateStr = dateStr;
 
-          const isMe = msg.sender === 'me';
+          // Determine if this message was sent by us
+          const isMe = msg.sender.toLowerCase() === myUsername.toLowerCase()
+            || msg.sender === 'me'; // backward compat for old messages
           const senderBadges = isMe ? myBadges : friendBadges;
           const senderAvatar = isMe ? (localStorage.getItem('revival_user') ? JSON.parse(localStorage.getItem('revival_user')!).avatar : 'crown') : friend.avatar;
           const senderName = isMe ? 'You' : friend.displayName;
           const isSenderSubscribed = isMe ? mySub.active : friendSub.active;
           const senderRoleTag = isMe ? myRoleTag : friendRoleTag;
+
+          // Check if previous message had same sender
+          const prevMsg = idx > 0 ? messages[idx - 1] : null;
+          const prevIsMe = prevMsg ? (prevMsg.sender.toLowerCase() === myUsername.toLowerCase() || prevMsg.sender === 'me') : null;
+          const sameSenderAsPrev = prevMsg ? (isMe === prevIsMe) : false;
 
           return (
             <div key={msg.id}>
@@ -181,7 +228,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
               )}
               <div className={`flex flex-col max-w-[85%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
                 {/* Sender tag with avatar, role tag, and badges */}
-                {(idx === 0 || messages[idx - 1]?.sender !== msg.sender) && (
+                {!sameSenderAsPrev && (
                   <div className="flex items-center gap-1.5 mb-1 px-1">
                     <UserAvatar
                       avatarKeyOrUrl={senderAvatar}
@@ -237,6 +284,16 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
           <Send size={13} />
         </button>
       </form>
+
+      {/* Friend Profile Modal */}
+      {showProfile && (
+        <UserProfileModal
+          username={friend.username}
+          displayName={friend.displayName}
+          avatar={friend.avatar}
+          onClose={() => setShowProfile(false)}
+        />
+      )}
     </div>
   );
 }
