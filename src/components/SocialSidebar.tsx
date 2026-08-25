@@ -10,7 +10,7 @@ import { getSubscription } from '../utils/subscription';
 import {
   getNetworkCatalog, CatalogUser, registerUserInCatalog,
   canAssignRoles, assignUserRolesByOwner, getFriendRequests,
-  sendFriendRequest, respondToFriendRequest
+  sendFriendRequest, respondToFriendRequest, loadFriendsForUser, saveFriendsForUser
 } from '../utils/userCatalog';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
@@ -42,18 +42,6 @@ interface MinecraftAccount {
 interface AccountData {
   accounts: MinecraftAccount[];
   active_id: string | null;
-}
-
-function loadFriends(): Friend[] {
-  try {
-    return JSON.parse(localStorage.getItem('revival_friends') || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function saveFriends(friends: Friend[]) {
-  localStorage.setItem('revival_friends', JSON.stringify(friends));
 }
 
 export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }: SocialSidebarProps) {
@@ -90,7 +78,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
     if (savedType) setStatusType(savedType as any);
 
     registerUserInCatalog(user);
-    setFriends(loadFriends());
+    setFriends(loadFriendsForUser(user.username));
     setCatalog(getNetworkCatalog());
     setRequests(getFriendRequests(user.username));
 
@@ -108,7 +96,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
   useEffect(() => {
     syncData();
     const interval = setInterval(() => {
-      setFriends(loadFriends());
+      setFriends(loadFriendsForUser(user.username));
       setCatalog(getNetworkCatalog());
       setRequests(getFriendRequests(user.username));
     }, 2500);
@@ -134,7 +122,8 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
   };
 
   const handleAddFriendFromCatalog = (target: CatalogUser) => {
-    const existing = loadFriends();
+    if (target.username.toLowerCase() === user.username.toLowerCase()) return;
+    const existing = loadFriendsForUser(user.username);
     if (existing.some(f => f.username.toLowerCase() === target.username.toLowerCase())) return;
 
     const newFriend: Friend = {
@@ -146,7 +135,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
     };
 
     const updated = [...existing, newFriend];
-    saveFriends(updated);
+    saveFriendsForUser(user.username, updated);
     setFriends(updated);
     setActiveSubTab('friends');
   };
@@ -154,6 +143,11 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
   const handleSendQuickRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickAddUser.trim()) return;
+    if (quickAddUser.trim().toLowerCase() === user.username.toLowerCase()) {
+      setQuickAddFeedback("You cannot add yourself as a friend.");
+      setTimeout(() => setQuickAddFeedback(''), 3000);
+      return;
+    }
 
     const result = sendFriendRequest(user.username, quickAddUser.trim());
     setQuickAddFeedback(result.message);
@@ -165,14 +159,14 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
   const handleRespondRequest = (reqId: string, accept: boolean) => {
     respondToFriendRequest(reqId, accept);
     setRequests(getFriendRequests(user.username));
-    setFriends(loadFriends());
+    setFriends(loadFriendsForUser(user.username));
   };
 
   const handleRemoveFriend = (username: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(`Remove @${username} from your friends list?`)) return;
-    const updated = loadFriends().filter(f => f.username.toLowerCase() !== username.toLowerCase());
-    saveFriends(updated);
+    const updated = loadFriendsForUser(user.username).filter(f => f.username.toLowerCase() !== username.toLowerCase());
+    saveFriendsForUser(user.username, updated);
     setFriends(updated);
   };
 
@@ -201,7 +195,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
     assignUserRolesByOwner(user.username, roleModalUser.username, selectedRolesToAssign);
     setRoleAssignedSuccess(true);
     setCatalog(getNetworkCatalog());
-    setFriends(loadFriends());
+    setFriends(loadFriendsForUser(user.username));
     setTimeout(() => {
       setRoleAssignedSuccess(false);
       setRoleModalUser(null);

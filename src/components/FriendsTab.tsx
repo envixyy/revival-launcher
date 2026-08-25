@@ -8,7 +8,7 @@ import { getBadgesForUser, getRoleTag, BadgeRole, BADGE_DEFS } from '../utils/ba
 import { getSubscription } from '../utils/subscription';
 import {
   getNetworkCatalog, CatalogUser, canAssignRoles, assignUserRolesByOwner,
-  getFriendRequests, sendFriendRequest, respondToFriendRequest
+  getFriendRequests, sendFriendRequest, respondToFriendRequest, loadFriendsForUser, saveFriendsForUser
 } from '../utils/userCatalog';
 import { UserProfileModal } from './UserProfileModal';
 import type { Friend } from './SocialSidebar';
@@ -16,18 +16,6 @@ import type { Friend } from './SocialSidebar';
 interface FriendsTabProps {
   user: { username: string; displayName: string; avatar: string };
   onStartChat: (friend: Friend) => void;
-}
-
-function loadFriends(): Friend[] {
-  try {
-    return JSON.parse(localStorage.getItem('revival_friends') || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function saveFriends(friends: Friend[]) {
-  localStorage.setItem('revival_friends', JSON.stringify(friends));
 }
 
 export function FriendsTab({ user, onStartChat }: FriendsTabProps) {
@@ -50,7 +38,7 @@ export function FriendsTab({ user, onStartChat }: FriendsTabProps) {
   const isOwner = canAssignRoles(user.username);
 
   const refreshData = () => {
-    setFriends(loadFriends());
+    setFriends(loadFriendsForUser(user.username));
     setCatalog(getNetworkCatalog());
     setRequests(getFriendRequests(user.username));
   };
@@ -62,7 +50,8 @@ export function FriendsTab({ user, onStartChat }: FriendsTabProps) {
   }, []);
 
   const handleAddFriend = (target: CatalogUser | { username: string; displayName: string; avatar: string }) => {
-    const existing = loadFriends();
+    if (target.username.toLowerCase() === user.username.toLowerCase()) return;
+    const existing = loadFriendsForUser(user.username);
     if (existing.some(f => f.username.toLowerCase() === target.username.toLowerCase())) return;
 
     const newFriend: Friend = {
@@ -74,21 +63,26 @@ export function FriendsTab({ user, onStartChat }: FriendsTabProps) {
     };
 
     const updated = [...existing, newFriend];
-    saveFriends(updated);
+    saveFriendsForUser(user.username, updated);
     setFriends(updated);
     setSubTab('all');
   };
 
   const handleRemoveFriend = (username: string) => {
     if (!confirm(`Remove @${username} from your friends list?`)) return;
-    const updated = loadFriends().filter(f => f.username.toLowerCase() !== username.toLowerCase());
-    saveFriends(updated);
+    const updated = loadFriendsForUser(user.username).filter(f => f.username.toLowerCase() !== username.toLowerCase());
+    saveFriendsForUser(user.username, updated);
     setFriends(updated);
   };
 
   const handleSendRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!addUsernameInput.trim()) return;
+    if (addUsernameInput.trim().toLowerCase() === user.username.toLowerCase()) {
+      setAddFeedback("You cannot add yourself as a friend.");
+      setTimeout(() => setAddFeedback(''), 3000);
+      return;
+    }
 
     const res = sendFriendRequest(user.username, addUsernameInput.trim());
     setAddFeedback(res.message);

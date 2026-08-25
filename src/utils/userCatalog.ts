@@ -123,15 +123,59 @@ export function assignUserRolesByOwner(
   return true;
 }
 
+// ─── Per-User Friends Storage ───────────────────────────────────
+
+export interface StoredFriend {
+  username: string;
+  displayName: string;
+  avatar: string;
+  addedAt: number;
+  status?: string;
+}
+
+export function loadFriendsForUser(username: string): StoredFriend[] {
+  if (!username) return [];
+  const lower = username.toLowerCase().trim();
+  const key = `revival_friends_${lower}`;
+
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) return JSON.parse(saved);
+
+    // Fallback: if user-specific key is empty, check legacy global key
+    const globalSaved = localStorage.getItem('revival_friends');
+    if (globalSaved) {
+      const parsed: StoredFriend[] = JSON.parse(globalSaved);
+      // Clean out self-friends if any existed in old database
+      const cleaned = parsed.filter(f => f.username.toLowerCase().trim() !== lower);
+      localStorage.setItem(key, JSON.stringify(cleaned));
+      return cleaned;
+    }
+  } catch {}
+
+  return [];
+}
+
+export function saveFriendsForUser(username: string, friends: StoredFriend[]): void {
+  if (!username) return;
+  const lower = username.toLowerCase().trim();
+  // Filter out any self-friends
+  const cleaned = friends.filter(f => f.username.toLowerCase().trim() !== lower);
+  const key = `revival_friends_${lower}`;
+  localStorage.setItem(key, JSON.stringify(cleaned));
+  // Sync global fallback for backward compatibility
+  localStorage.setItem('revival_friends', JSON.stringify(cleaned));
+}
+
 // ─── Friend Requests System ───────────────────────────────────
 
 export function getFriendRequests(myUsername: string): { incoming: FriendRequest[]; outgoing: FriendRequest[] } {
   try {
     const saved: FriendRequest[] = JSON.parse(localStorage.getItem('revival_friend_requests') || '[]');
-    const myLower = myUsername.toLowerCase();
+    const myLower = myUsername.toLowerCase().trim();
     return {
-      incoming: saved.filter(r => r.toUsername.toLowerCase() === myLower && r.status === 'pending'),
-      outgoing: saved.filter(r => r.fromUsername.toLowerCase() === myLower && r.status === 'pending'),
+      incoming: saved.filter(r => r.toUsername.toLowerCase().trim() === myLower && r.status === 'pending'),
+      outgoing: saved.filter(r => r.fromUsername.toLowerCase().trim() === myLower && r.status === 'pending'),
     };
   } catch {
     return { incoming: [], outgoing: [] };
@@ -143,23 +187,29 @@ export function sendFriendRequest(fromUser: string, toUser: string): { success: 
   const toLower = toUser.toLowerCase().trim();
 
   if (!toLower) return { success: false, message: 'Enter a valid username.' };
-  if (fromLower === toLower) return { success: false, message: "You can't add yourself." };
+  if (fromLower === toLower) return { success: false, message: "You cannot add yourself as a friend." };
+
+  // Check if already friends
+  const currentFriends = loadFriendsForUser(fromLower);
+  if (currentFriends.some(f => f.username.toLowerCase().trim() === toLower)) {
+    return { success: false, message: `You are already friends with @${toLower}.` };
+  }
 
   const all: FriendRequest[] = JSON.parse(localStorage.getItem('revival_friend_requests') || '[]');
   
   // Check if already pending
   const existing = all.find(r => 
-    ((r.fromUsername === fromLower && r.toUsername === toLower) ||
-     (r.fromUsername === toLower && r.toUsername === fromLower)) &&
+    ((r.fromUsername.toLowerCase() === fromLower && r.toUsername.toLowerCase() === toLower) ||
+     (r.fromUsername.toLowerCase() === toLower && r.toUsername.toLowerCase() === fromLower)) &&
     r.status === 'pending'
   );
 
   if (existing) {
-    return { success: false, message: 'Friend request already pending.' };
+    return { success: false, message: `Friend request already pending with @${toLower}.` };
   }
 
   const req: FriendRequest = {
-    id: `req_${Date.now()}_${Math.random()}`,
+    id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     fromUsername: fromLower,
     toUsername: toLower,
     timestamp: Date.now(),
@@ -181,19 +231,37 @@ export function respondToFriendRequest(reqId: string, accept: boolean): boolean 
   localStorage.setItem('revival_friend_requests', JSON.stringify(all));
 
   if (accept) {
-    // Add to friends list for both
     const catalog = getNetworkCatalog();
-    const friendObj = catalog.find(u => u.username === req.fromUsername);
-    const friends = JSON.parse(localStorage.getItem('revival_friends') || '[]');
-    if (!friends.some((f: any) => f.username === req.fromUsername)) {
-      friends.push({
-        username: req.fromUsername,
-        displayName: friendObj?.displayName || req.fromUsername,
-        avatar: friendObj?.avatar || 'zap',
+    const userA = req.fromUsername.toLowerCase().trim();
+    const userB = req.toUsername.toLowerCase().trim();
+
+    const objA = catalog.find(u => u.username.toLowerCase() === userA);
+    const objB = catalog.find(u => u.username.toLowerCase() === userB);
+
+    // Add userA to userB's friends list
+    const friendsB = loadFriendsForUser(userB);
+    if (!friendsB.some(f => f.username.toLowerCase() === userA)) {
+      friendsB.push({
+        username: userA,
+        displayName: objA?.displayName || userA,
+        avatar: objA?.avatar || 'crown',
         addedAt: Date.now(),
-        status: friendObj?.status || 'Online',
+        status: objA?.status || 'Online',
       });
-      localStorage.setItem('revival_friends', JSON.stringify(friends));
+      saveFriendsForUser(userB, friendsB);
+    }
+
+    // Add userB to userA's friends list
+    const friendsA = loadFriendsForUser(userA);
+    if (!friendsA.some(f => f.username.toLowerCase() === userB)) {
+      friendsA.push({
+        username: userB,
+        displayName: objB?.displayName || userB,
+        avatar: objB?.avatar || 'crown',
+        addedAt: Date.now(),
+        status: objB?.status || 'Online',
+      });
+      saveFriendsForUser(userA, friendsA);
     }
   }
 

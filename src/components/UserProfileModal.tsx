@@ -4,6 +4,7 @@ import { getBadgesForUser, getRoleTag } from '../utils/badges';
 import { getSubscription, SUBSCRIPTION_TIERS } from '../utils/subscription';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
+import { loadFriendsForUser } from '../utils/userCatalog';
 
 interface UserProfileModalProps {
   username: string;
@@ -43,11 +44,10 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
   // Load join date from catalog
   let joinedLabel = 'Recently';
   try {
-    const catalog = JSON.parse(localStorage.getItem('revival_network_catalog') || '{}');
-    const users: any[] = catalog.users || [];
-    const found = users.find((u: any) => u.username?.toLowerCase() === username.toLowerCase());
-    if (found?.registeredAt) {
-      joinedLabel = new Date(found.registeredAt).toLocaleDateString([], { month: 'short', year: 'numeric' });
+    const catalog = JSON.parse(localStorage.getItem('revival_user_catalog') || '[]');
+    const found = catalog.find((u: any) => u.username?.toLowerCase() === username.toLowerCase());
+    if (found?.joinedAt) {
+      joinedLabel = new Date(found.joinedAt).toLocaleDateString([], { month: 'short', year: 'numeric' });
     }
   } catch { /* ignore */ }
 
@@ -59,6 +59,7 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
   };
   const statusType = localStorage.getItem(`revival_status_type_${username}`) || 'online';
   const tierInfo = SUBSCRIPTION_TIERS[sub.tier === 'none' ? 'plus' : sub.tier];
+  const userFriendsCount = loadFriendsForUser(username).length;
 
   return (
     <div
@@ -66,12 +67,12 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg bg-[#16171d] border border-[#2c2e38] rounded-3xl overflow-hidden shadow-2xl animate-scale-up"
+        className="relative w-full max-w-lg max-h-[88vh] flex flex-col bg-[#16171d] border border-[#2c2e38] rounded-3xl overflow-hidden shadow-2xl animate-scale-up"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header banner - Large & Spacious */}
+        {/* Header banner - Fixed Top */}
         <div
-          className="h-44 w-full relative bg-gradient-to-br from-[#1c1d22] via-[#14151b] to-[#0d0e12] border-b border-[#2c2e38]"
+          className="h-40 w-full relative flex-shrink-0 bg-gradient-to-br from-[#1c1d22] via-[#14151b] to-[#0d0e12] border-b border-[#2c2e38]"
           style={{
             backgroundImage: bannerUrl ? `url(${bannerUrl})` : undefined,
             backgroundSize: 'cover',
@@ -91,10 +92,10 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
           </button>
         </div>
 
-        {/* User profile layout */}
-        <div className="px-7 pb-7 pt-0 relative">
+        {/* User profile layout — Scrollable Body */}
+        <div className="px-7 pb-7 pt-0 relative flex-1 overflow-y-auto no-scrollbar">
           {/* Large Floating Avatar */}
-          <div className="absolute -top-16 left-7">
+          <div className="absolute -top-14 left-7 z-20">
             <div className="relative">
               <UserAvatar
                 avatarKeyOrUrl={customAvatarUrl || avatar}
@@ -108,7 +109,7 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
           </div>
 
           {/* Content */}
-          <div className="pt-16 space-y-5">
+          <div className="pt-14 space-y-4">
             {/* Name, Tag & Username */}
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
@@ -183,12 +184,7 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
                 <p className="text-[10px] uppercase font-black tracking-wider text-gray-500">Total Friends</p>
                 <p className="text-sm font-black text-white mt-1 flex items-center justify-center gap-1.5">
                   <Shield size={14} className="text-[#facc15]" />
-                  {(() => {
-                    try {
-                      const friends = JSON.parse(localStorage.getItem('revival_friends') || '[]');
-                      return friends.length;
-                    } catch { return 0; }
-                  })()}
+                  {userFriendsCount}
                 </p>
               </div>
               <div>
@@ -201,7 +197,7 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 pt-1">
+            <div className="flex gap-3 pt-2">
               {onStartChat && (
                 <button
                   onClick={() => { onStartChat(); onClose(); }}
