@@ -1,4 +1,4 @@
-import { Home, Compass, Library, Plus, Settings, Users, User } from 'lucide-react';
+import { Home, Compass, Library, Plus, Settings, Users, User, Sparkles } from 'lucide-react';
 import logoImg from '../assets/logo.png';
 
 interface SidebarProps {
@@ -9,10 +9,12 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, setActiveTab, onPlusClick }: SidebarProps) {
   const primaryNav = [
-    { id: 'home',    icon: <Home size={22} />,    label: 'Dashboard' },
-    { id: 'library', icon: <Library size={22} />, label: 'Library' },
-    { id: 'search',  icon: <Compass size={22} />, label: 'Discover' },
-    { id: 'profile', icon: <User size={22} />,    label: 'Profile' },
+    { id: 'home',        icon: <Home size={22} />,        label: 'Dashboard' },
+    { id: 'library',     icon: <Library size={22} />,     label: 'Library' },
+    { id: 'search',      icon: <Compass size={22} />,     label: 'Discover' },
+    { id: 'friends',     icon: <Users size={22} />,       label: 'Friends Hub' },
+    { id: 'suggestions', icon: <Sparkles size={22} />,    label: 'Suggestions Forum' },
+    { id: 'profile',     icon: <User size={22} />,        label: 'Profile' },
   ];
 
   return (

@@ -7,6 +7,8 @@ import { AccountsTab } from './components/AccountsTab';
 import { InstanceViewTab } from './components/InstanceViewTab';
 import { LibraryTab } from './components/LibraryTab';
 import { ProfileTab } from './components/ProfileTab';
+import { FriendsTab } from './components/FriendsTab';
+import { SuggestionsTab } from './components/SuggestionsTab';
 import { AuthScreen } from './components/AuthScreen';
 import { ChatOverlay } from './components/ChatOverlay';
 import { TitleBar } from './components/TitleBar';
@@ -29,6 +31,8 @@ const PAGE_LABELS: Record<string, string> = {
   home: 'Dashboard',
   library: 'Library',
   search: 'Discover',
+  friends: 'Friends Hub',
+  suggestions: 'Suggestions Forum',
   profile: 'Profile',
   'instance-view': 'Instance',
   accounts: 'Accounts',
@@ -176,6 +180,18 @@ function App() {
             <SearchTab
               activeInstance={selectedInstance}
               onSelectInstance={setSelectedInstance}
+            />
+          )}
+          {activeTab === 'friends' && (
+            <FriendsTab
+              user={currentUser}
+              onStartChat={setActiveChatFriend}
+            />
+          )}
+          {activeTab === 'suggestions' && (
+            <SuggestionsTab
+              user={currentUser}
+              onStartChat={setActiveChatFriend}
             />
           )}
           {activeTab === 'profile' && (
