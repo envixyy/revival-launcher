@@ -1,11 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   LogOut, Users, MessageSquare, ChevronDown, RefreshCw,
-  UserCheck, Settings, UserPlus, X, Check, Gamepad2, User as UserIcon
+  UserCheck, Settings, UserPlus, X, Check, Gamepad2,
+  Search, Globe, Crown, CheckCircle2, Clock, Inbox
 } from 'lucide-react';
 import { safeInvoke } from '../utils/tauri';
-import { getBadgesForUser, BadgeRole, saveBadgesForUser, getRoleTag } from '../utils/badges';
+import { getBadgesForUser, BadgeRole, BADGE_DEFS, getRoleTag } from '../utils/badges';
 import { getSubscription } from '../utils/subscription';
+import {
+  getNetworkCatalog, CatalogUser, registerUserInCatalog,
+  canAssignRoles, assignUserRolesByOwner, getFriendRequests,
+  sendFriendRequest, respondToFriendRequest
+} from '../utils/userCatalog';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
 
@@ -49,30 +55,40 @@ function saveFriends(friends: Friend[]) {
   localStorage.setItem('revival_friends', JSON.stringify(friends));
 }
 
-const VECTOR_AVATAR_KEYS = ['crown', 'swords', 'zap', 'gamepad', 'shield', 'flame', 'sparkles', 'terminal', 'bot', 'rocket', 'compass', 'star'];
-
 export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }: SocialSidebarProps) {
+  const [activeSubTab, setActiveSubTab] = useState<'friends' | 'catalog' | 'requests'>('friends');
   const [statusMsg, setStatusMsg] = useState('Exploring modpacks on Revival...');
   const [statusType, setStatusType] = useState<'online' | 'idle' | 'dnd' | 'offline'>('online');
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [catalog, setCatalog] = useState<CatalogUser[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [mcAccounts, setMcAccounts] = useState<AccountData>({ accounts: [], active_id: null });
   const [showMcSwitcher, setShowMcSwitcher] = useState(false);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
-  const [showAddFriend, setShowAddFriend] = useState(false);
-  const [addUsername, setAddUsername] = useState('');
-  const [addRole, setAddRole] = useState<BadgeRole>('early_access');
-  const [addError, setAddError] = useState('');
-  const [addSuccess, setAddSuccess] = useState('');
+
+  // Friend Request state
+  const [requests, setRequests] = useState<{ incoming: any[]; outgoing: any[] }>({ incoming: [], outgoing: [] });
+  const [quickAddUser, setQuickAddUser] = useState('');
+  const [quickAddFeedback, setQuickAddFeedback] = useState('');
+
+  // Owner Role Management Modal
+  const [roleModalUser, setRoleModalUser] = useState<CatalogUser | Friend | null>(null);
+  const [selectedRolesToAssign, setSelectedRolesToAssign] = useState<BadgeRole[]>([]);
+  const [roleAssignedSuccess, setRoleAssignedSuccess] = useState(false);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const addInputRef = useRef<HTMLInputElement>(null);
+  const isOwner = canAssignRoles(user.username);
 
   const syncData = async () => {
     const savedStatus = localStorage.getItem('revival_user_status');
     if (savedStatus) setStatusMsg(savedStatus);
     const savedType = localStorage.getItem('revival_user_type');
-    if (savedType) setStatusType(savedType as 'online' | 'idle' | 'dnd' | 'offline');
+    if (savedType) setStatusType(savedType as any);
 
+    registerUserInCatalog(user);
     setFriends(loadFriends());
+    setCatalog(getNetworkCatalog());
+    setRequests(getFriendRequests(user.username));
 
     setLoadingAccounts(true);
     try {
@@ -87,14 +103,13 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
 
   useEffect(() => {
     syncData();
-    const interval = setInterval(() => setFriends(loadFriends()), 3000);
+    const interval = setInterval(() => {
+      setFriends(loadFriends());
+      setCatalog(getNetworkCatalog());
+      setRequests(getFriendRequests(user.username));
+    }, 2500);
     return () => clearInterval(interval);
   }, [user]);
-
-  useEffect(() => {
-    if (showAddFriend) setTimeout(() => addInputRef.current?.focus(), 50);
-    else { setAddUsername(''); setAddError(''); setAddSuccess(''); }
-  }, [showAddFriend]);
 
   useEffect(() => {
     const clickOutside = (e: MouseEvent) => {
@@ -114,42 +129,79 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
     } catch { /* ignore */ }
   };
 
-  const handleAddFriend = () => {
-    const uname = addUsername.trim().toLowerCase().replace(/\s+/g, '_');
-    if (!uname) { setAddError('Enter a username.'); return; }
-    if (uname === user.username.toLowerCase()) { setAddError("That's you!"); return; }
-
+  // Add friend directly from catalog or search
+  const handleAddFriendFromCatalog = (target: CatalogUser) => {
     const existing = loadFriends();
-    if (existing.some(f => f.username.toLowerCase() === uname)) {
-      setAddError('Already in friends list.');
-      return;
-    }
+    if (existing.some(f => f.username.toLowerCase() === target.username.toLowerCase())) return;
 
-    const randomAvatar = VECTOR_AVATAR_KEYS[uname.charCodeAt(0) % VECTOR_AVATAR_KEYS.length];
     const newFriend: Friend = {
-      username: uname,
-      displayName: uname,
-      avatar: randomAvatar,
+      username: target.username,
+      displayName: target.displayName,
+      avatar: target.avatar,
       addedAt: Date.now(),
-      status: 'Online',
-      role: addRole,
+      status: target.activity || target.status || 'Online',
     };
-
-    saveBadgesForUser(uname, [addRole]);
 
     const updated = [...existing, newFriend];
     saveFriends(updated);
     setFriends(updated);
-    setAddSuccess(`${uname} added!`);
-    setAddUsername('');
-    setTimeout(() => { setAddSuccess(''); setShowAddFriend(false); }, 1500);
+    setActiveSubTab('friends');
+  };
+
+  const handleSendQuickRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickAddUser.trim()) return;
+
+    const result = sendFriendRequest(user.username, quickAddUser.trim());
+    setQuickAddFeedback(result.message);
+    setQuickAddUser('');
+    setRequests(getFriendRequests(user.username));
+    setTimeout(() => setQuickAddFeedback(''), 3000);
+  };
+
+  const handleRespondRequest = (reqId: string, accept: boolean) => {
+    respondToFriendRequest(reqId, accept);
+    setRequests(getFriendRequests(user.username));
+    setFriends(loadFriends());
   };
 
   const handleRemoveFriend = (username: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const updated = loadFriends().filter(f => f.username !== username);
+    const updated = loadFriends().filter(f => f.username.toLowerCase() !== username.toLowerCase());
     saveFriends(updated);
     setFriends(updated);
+  };
+
+  // Owner Role Assignment Modal
+  const openRoleModal = (target: CatalogUser | Friend, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!isOwner) return;
+    setRoleModalUser(target);
+    const existingBadges = getBadgesForUser(target.username);
+    setSelectedRolesToAssign(existingBadges.map(b => b.role));
+  };
+
+  const toggleRoleInModal = (role: BadgeRole) => {
+    setSelectedRolesToAssign(prev => {
+      if (prev.includes(role)) {
+        if (prev.length <= 1) return prev;
+        return prev.filter(r => r !== role);
+      } else {
+        return [...prev, role];
+      }
+    });
+  };
+
+  const handleSaveAssignedRoles = () => {
+    if (!roleModalUser || !isOwner) return;
+    assignUserRolesByOwner(user.username, roleModalUser.username, selectedRolesToAssign);
+    setRoleAssignedSuccess(true);
+    setCatalog(getNetworkCatalog());
+    setFriends(loadFriends());
+    setTimeout(() => {
+      setRoleAssignedSuccess(false);
+      setRoleModalUser(null);
+    }, 1200);
   };
 
   const statusColors = {
@@ -164,13 +216,21 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
   const mySub = getSubscription(user.username);
   const myRoleTag = getRoleTag(user.username);
 
-  return (
-    <div className="w-64 h-full bg-[#0d0e12] border-l border-[#1e2028] flex flex-col select-none flex-shrink-0 overflow-hidden">
-      {/* Upper scrollable area */}
-      <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar p-3.5 gap-4">
+  // Filter Catalog Search
+  const filteredCatalog = catalog.filter(u => {
+    if (u.username.toLowerCase() === user.username.toLowerCase()) return false;
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    return u.username.toLowerCase().includes(query) || u.displayName.toLowerCase().includes(query) || (u.activity && u.activity.toLowerCase().includes(query));
+  });
 
-        {/* Profile Card with Badges & Vector Avatar */}
-        <div className="bg-[#15161c] border border-[#2c2e38] rounded-2xl p-3 flex flex-col gap-2.5 shadow-md">
+  return (
+    <div className="w-68 h-full bg-[#0d0e12] border-l border-[#1e2028] flex flex-col select-none flex-shrink-0 overflow-hidden">
+      {/* Upper Area */}
+      <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar p-3.5 gap-3">
+
+        {/* Profile Card */}
+        <div className="bg-[#15161c] border border-[#2c2e38] rounded-2xl p-3 flex flex-col gap-2 shadow-md">
           <div className="flex items-center gap-2.5">
             <div className="relative flex-shrink-0">
               <UserAvatar
@@ -185,16 +245,18 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {myRoleTag && (
-                  <span className={`text-[10px] font-black uppercase ${myRoleTag.colorClass}`}>
+                  <span className={`text-[9.5px] font-black uppercase ${myRoleTag.colorClass}`}>
                     {myRoleTag.tag}
                   </span>
                 )}
                 <h4 className="font-black text-xs text-white truncate leading-tight">{user.displayName}</h4>
-                {myBadges.slice(0, 2).map(b => (
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-[9px] text-gray-500 font-bold">@{user.username}</p>
+                {myBadges.slice(0, 1).map(b => (
                   <BadgePill key={b.role} badge={b} size="sm" />
                 ))}
               </div>
-              <p className="text-[9px] text-gray-500 truncate mt-0.5 font-semibold">@{user.username}</p>
             </div>
 
             <button
@@ -206,91 +268,75 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
             </button>
           </div>
 
-          <div className="border-t border-[#2c2e38]/50 pt-1.5">
-            <p className="text-[10px] text-gray-400 italic truncate" title={statusMsg}>"{statusMsg}"</p>
+          <div className="border-t border-[#2c2e38]/50 pt-1 flex items-center justify-between text-[9.5px]">
+            <span className="text-gray-400 italic truncate max-w-[140px]" title={statusMsg}>"{statusMsg}"</span>
+            {isOwner && (
+              <span className="text-[8px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.2 rounded border border-amber-400/20">
+                OWNER AUTH
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Friends Section */}
-        <div className="flex flex-col gap-1.5 flex-1 min-h-0">
-          {/* Header */}
-          <div className="flex items-center justify-between px-1 mb-1">
-            <div className="flex items-center gap-1.5">
-              <Users size={13} className="text-[#facc15]" />
-              <h4 className="text-[10px] font-black uppercase tracking-wider text-gray-300">Friends & Network</h4>
-              {friends.length > 0 && (
-                <span className="text-[9px] font-black text-[#facc15] bg-[#facc15]/10 px-1.5 py-0.2 rounded-md border border-[#facc15]/20">
-                  {friends.length}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => setShowAddFriend(v => !v)}
-              title="Add a friend"
-              className={`p-1.5 rounded-lg transition-all ${
-                showAddFriend 
-                  ? 'bg-[#facc15] text-black shadow-md' 
-                  : 'hover:bg-[#1c1d22] text-gray-400 hover:text-white border border-[#2c2e38]'
-              }`}
-            >
-              {showAddFriend ? <X size={12} /> : <UserPlus size={12} />}
-            </button>
-          </div>
+        {/* Fortnite-Style Navigation Tabs */}
+        <div className="flex bg-[#15161c] border border-[#2c2e38] p-1 rounded-xl gap-1">
+          <button
+            onClick={() => setActiveSubTab('friends')}
+            className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+              activeSubTab === 'friends'
+                ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/10'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Users size={12} />
+            <span>Friends</span>
+            {friends.length > 0 && (
+              <span className={`text-[8.5px] px-1 rounded ${activeSubTab === 'friends' ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-300'}`}>
+                {friends.length}
+              </span>
+            )}
+          </button>
 
-          {/* Add Friend Form */}
-          {showAddFriend && (
-            <div className="bg-[#15161c] border border-[#facc15]/30 rounded-xl p-2.5 flex flex-col gap-2 animate-fade-in shadow-xl">
-              <p className="text-[9px] text-[#facc15] font-black uppercase tracking-wide">Add Friend</p>
-              <input
-                ref={addInputRef}
-                type="text"
-                value={addUsername}
-                onChange={e => { setAddUsername(e.target.value); setAddError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleAddFriend()}
-                placeholder="friend_username..."
-                className="w-full bg-[#0d0e12] border border-[#2c2e38] rounded-lg px-2.5 py-1.5 text-[10px] text-white outline-none focus:border-[#facc15] font-semibold"
-              />
+          <button
+            onClick={() => setActiveSubTab('catalog')}
+            className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+              activeSubTab === 'catalog'
+                ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/10'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Globe size={12} />
+            <span>Directory</span>
+          </button>
 
-              {/* Role selector for added friend */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[9px] text-gray-400 font-bold">Role:</span>
-                <select
-                  value={addRole}
-                  onChange={e => setAddRole(e.target.value as BadgeRole)}
-                  className="flex-1 bg-[#0d0e12] border border-[#2c2e38] text-white rounded-lg px-1.5 py-1 text-[9px] font-bold outline-none cursor-pointer"
-                >
-                  <option value="early_access">VIP Member</option>
-                  <option value="plus">PLUS+ Subscriber</option>
-                  <option value="developer">Developer</option>
-                  <option value="admin">Admin</option>
-                  <option value="owner">Owner</option>
-                  <option value="supporter">Supporter</option>
-                </select>
+          <button
+            onClick={() => setActiveSubTab('requests')}
+            className={`py-1.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all relative ${
+              activeSubTab === 'requests'
+                ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/10'
+                : 'text-gray-400 hover:text-white'
+            }`}
+            title="Friend Requests"
+          >
+            <Inbox size={12} />
+            {requests.incoming.length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-red-500 ring-2 ring-[#15161c] absolute -top-0.5 -right-0.5 animate-pulse" />
+            )}
+          </button>
+        </div>
 
-                <button
-                  onClick={handleAddFriend}
-                  className="px-2.5 py-1 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold rounded-lg text-[10px] transition-all flex-shrink-0 flex items-center gap-0.5"
-                >
-                  <Check size={11} /> Add
-                </button>
-              </div>
-
-              {addError && <p className="text-[9px] text-red-400 font-semibold">{addError}</p>}
-              {addSuccess && <p className="text-[9px] text-green-400 font-semibold">{addSuccess}</p>}
-            </div>
-          )}
-
-          {/* Friends List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar space-y-1">
+        {/* TAB 1: FRIENDS LIST */}
+        {activeSubTab === 'friends' && (
+          <div className="flex-1 flex flex-col min-h-0 space-y-1.5">
             {friends.length === 0 ? (
               <div className="text-center py-8 flex flex-col items-center gap-2 bg-[#15161c]/40 rounded-2xl border border-dashed border-[#2c2e38] p-4">
-                <Users size={24} className="text-gray-500" />
+                <Users size={22} className="text-gray-500" />
                 <p className="text-[10px] text-gray-400 font-bold">No friends added yet</p>
                 <button
-                  onClick={() => setShowAddFriend(true)}
-                  className="text-[9px] text-[#facc15] font-extrabold hover:underline"
+                  onClick={() => setActiveSubTab('catalog')}
+                  className="text-[9.5px] text-[#facc15] font-black hover:underline"
                 >
-                  + Add your first friend
+                  + Browse Player Directory
                 </button>
               </div>
             ) : (
@@ -331,7 +377,17 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                           )}
                         </div>
 
+                        {/* Action buttons */}
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                          {isOwner && (
+                            <button
+                              onClick={e => openRoleModal(friend, e)}
+                              className="p-1 rounded hover:bg-amber-500/20 text-amber-400 transition-colors"
+                              title="👑 Owner: Manage Roles"
+                            >
+                              <Crown size={11} />
+                            </button>
+                          )}
                           <MessageSquare size={11} className="text-[#facc15]" />
                           <button
                             onClick={e => handleRemoveFriend(friend.username, e)}
@@ -351,8 +407,225 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
               })
             )}
           </div>
-        </div>
+        )}
+
+        {/* TAB 2: NETWORK PLAYER CATALOG */}
+        {activeSubTab === 'catalog' && (
+          <div className="flex-1 flex flex-col min-h-0 space-y-2">
+            {/* Search input */}
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search network players..."
+                className="w-full bg-[#15161c] border border-[#2c2e38] rounded-xl pl-8 pr-3 py-1.5 text-[10px] text-white outline-none focus:border-[#facc15] font-semibold"
+              />
+            </div>
+
+            {/* Quick Add By Username */}
+            <form onSubmit={handleSendQuickRequest} className="bg-[#15161c] border border-[#2c2e38] p-2 rounded-xl flex gap-1.5">
+              <input
+                type="text"
+                value={quickAddUser}
+                onChange={e => setQuickAddUser(e.target.value)}
+                placeholder="Add @username..."
+                className="flex-1 bg-[#0d0e12] border border-[#2c2e38] rounded-lg px-2 py-1 text-[10px] text-white outline-none focus:border-[#facc15] font-medium"
+              />
+              <button
+                type="submit"
+                className="px-2.5 py-1 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-[10px] rounded-lg transition-all flex items-center gap-1"
+              >
+                <UserPlus size={11} /> Add
+              </button>
+            </form>
+            {quickAddFeedback && (
+              <p className="text-[9px] text-[#facc15] font-bold px-1 animate-fade-in">{quickAddFeedback}</p>
+            )}
+
+            {/* Catalog List */}
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-1.5">
+              {filteredCatalog.map(target => {
+                const targetBadges = getBadgesForUser(target.username);
+                const targetRoleTag = getRoleTag(target.username);
+                const targetSub = getSubscription(target.username);
+                const isAlreadyFriend = friends.some(f => f.username.toLowerCase() === target.username.toLowerCase());
+
+                return (
+                  <div
+                    key={target.username}
+                    className="bg-[#15161c] border border-[#2c2e38] hover:border-[#facc15]/40 rounded-xl p-2.5 flex flex-col gap-1.5 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="relative flex-shrink-0">
+                          <UserAvatar
+                            avatarKeyOrUrl={target.avatar}
+                            name={target.displayName}
+                            size="sm"
+                            isSubscribed={targetSub.active}
+                          />
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-[#0d0e12] ${target.isOnline ? 'bg-green-400' : 'bg-gray-600'}`} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            {targetRoleTag && (
+                              <span className={`text-[8.5px] font-black uppercase ${targetRoleTag.colorClass}`}>
+                                {targetRoleTag.tag}
+                              </span>
+                            )}
+                            <h5 className="font-extrabold text-xs text-white truncate">{target.displayName}</h5>
+                          </div>
+                          <p className="text-[8.5px] text-gray-500 font-semibold truncate">@{target.username}</p>
+                        </div>
+                      </div>
+
+                      {/* Badges */}
+                      {targetBadges[0] && (
+                        <BadgePill badge={targetBadges[0]} size="sm" />
+                      )}
+                    </div>
+
+                    <div className="text-[9px] text-gray-400 flex items-center justify-between border-t border-[#2c2e38]/50 pt-1">
+                      <span className="truncate text-yellow-300/80 font-medium">🎮 {target.activity || target.status}</span>
+
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {isOwner && (
+                          <button
+                            onClick={() => openRoleModal(target)}
+                            className="px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 hover:bg-amber-400/20 text-[8.5px] font-black flex items-center gap-0.5 transition-all"
+                            title="👑 Owner: Assign Roles"
+                          >
+                            <Crown size={9} /> Role
+                          </button>
+                        )}
+
+                        {isAlreadyFriend ? (
+                          <button
+                            onClick={() => onStartChat({ username: target.username, displayName: target.displayName, avatar: target.avatar, addedAt: Date.now() })}
+                            className="px-2 py-0.5 bg-[#facc15] hover:bg-yellow-300 text-black font-black text-[9px] rounded-lg transition-all flex items-center gap-0.5"
+                          >
+                            <MessageSquare size={10} /> Chat
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleAddFriendFromCatalog(target)}
+                            className="px-2 py-0.5 bg-[#20222a] hover:bg-[#facc15] hover:text-black text-gray-300 font-bold text-[9px] rounded-lg transition-all flex items-center gap-0.5"
+                          >
+                            <UserPlus size={10} /> Add
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: FRIEND REQUESTS */}
+        {activeSubTab === 'requests' && (
+          <div className="flex-1 flex flex-col min-h-0 space-y-2">
+            <h5 className="text-[10px] font-black uppercase tracking-wider text-gray-400 px-1">
+              Incoming Friend Requests ({requests.incoming.length})
+            </h5>
+
+            {requests.incoming.length === 0 ? (
+              <div className="text-center py-6 bg-[#15161c]/40 rounded-2xl border border-dashed border-[#2c2e38] p-3 text-gray-500 text-[10px] font-bold">
+                No pending requests
+              </div>
+            ) : (
+              requests.incoming.map((req: any) => (
+                <div key={req.id} className="bg-[#15161c] border border-[#2c2e38] rounded-xl p-2.5 flex items-center justify-between">
+                  <div>
+                    <h6 className="font-extrabold text-xs text-white">@{req.fromUsername}</h6>
+                    <span className="text-[8.5px] text-gray-500 flex items-center gap-1"><Clock size={9} /> Requested to be friends</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleRespondRequest(req.id, true)}
+                      className="p-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"
+                      title="Accept"
+                    >
+                      <Check size={12} />
+                    </button>
+                    <button
+                      onClick={() => handleRespondRequest(req.id, false)}
+                      className="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                      title="Decline"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
+
+      {/* OWNER ROLE ASSIGNMENT MODAL (ONLY VISIBLE TO "envixyy") */}
+      {isOwner && roleModalUser && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-[#15161c] border border-amber-400/40 rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#2c2e38] pb-3">
+              <div className="flex items-center gap-2">
+                <Crown size={18} className="text-amber-400" />
+                <div>
+                  <h4 className="font-black text-sm text-white leading-tight">Owner Authority Manager</h4>
+                  <p className="text-[10px] text-amber-300/80 font-bold">Assigning roles for @{roleModalUser.username}</p>
+                </div>
+              </div>
+              <button onClick={() => setRoleModalUser(null)} className="text-gray-400 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black uppercase text-gray-400">Toggle User Badges & Role:</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.keys(BADGE_DEFS) as BadgeRole[]).map(role => {
+                  const b = BADGE_DEFS[role];
+                  const isSelected = selectedRolesToAssign.includes(role);
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => toggleRoleInModal(role)}
+                      className={`flex items-center gap-1.5 p-2 rounded-xl border text-xs font-bold transition-all text-left ${
+                        isSelected
+                          ? 'bg-[#20222e] border-amber-400 text-white shadow-sm'
+                          : 'bg-[#0d0e12] border-[#2c2e38] text-gray-500 opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <BadgePill badge={b} size="sm" />
+                      <span className="text-[9px] font-bold text-gray-400">{isSelected ? '✓' : ''}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center gap-2">
+              <button
+                onClick={handleSaveAssignedRoles}
+                className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs rounded-xl shadow-lg shadow-yellow-500/20 transition-all flex items-center justify-center gap-1"
+              >
+                <Check size={13} /> Save Assigned Roles
+              </button>
+            </div>
+
+            {roleAssignedSuccess && (
+              <p className="text-xs text-green-400 font-bold text-center animate-fade-in flex items-center justify-center gap-1">
+                <CheckCircle2 size={13} /> Roles updated for @{roleModalUser.username}!
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Minecraft Account Footer */}
       <div className="p-3.5 border-t border-[#1e2028] bg-[#08090c] relative" ref={dropdownRef}>
@@ -366,7 +639,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
           className="w-full flex items-center gap-2 bg-[#15161c] hover:bg-[#1a1c24] border border-[#2c2e38] hover:border-[#facc15]/40 p-2 rounded-xl transition-all text-left relative shadow-sm"
         >
           <div className="w-6 h-6 rounded-lg bg-[#242630] flex items-center justify-center text-xs flex-shrink-0 text-gray-300">
-            {activeMcAccount?.type === 'microsoft' ? <Gamepad2 size={13} className="text-[#facc15]" /> : <UserIcon size={13} />}
+            {activeMcAccount?.type === 'microsoft' ? <Gamepad2 size={13} className="text-[#facc15]" /> : <Users size={13} />}
           </div>
           <div className="min-w-0 flex-1 pr-3">
             <p className="font-extrabold text-[11px] text-white truncate leading-tight">
@@ -395,7 +668,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                     acc.id === mcAccounts.active_id ? 'text-[#facc15] bg-[#facc15]/5' : 'text-white'
                   }`}
                 >
-                  <span className="text-xs">{acc.type === 'microsoft' ? <Gamepad2 size={12} className="text-[#facc15]" /> : <UserIcon size={12} />}</span>
+                  <span className="text-xs">{acc.type === 'microsoft' ? <Gamepad2 size={12} className="text-[#facc15]" /> : <Users size={12} />}</span>
                   <span className="truncate flex-1">{acc.username}</span>
                   {acc.id === mcAccounts.active_id && <UserCheck size={12} className="text-[#facc15]" />}
                 </button>

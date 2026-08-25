@@ -4,11 +4,12 @@ import {
   Image as ImageIcon, Upload, Star, CheckCircle, ShieldAlert,
   Crown, Zap
 } from 'lucide-react';
-import { BADGE_DEFS, BadgeRole, getBadgesForUser, saveBadgesForUser, isAdminOrOwner, getRoleTag } from '../utils/badges';
+import { BADGE_DEFS, BadgeRole, getBadgesForUser, saveBadgesForUser, getRoleTag } from '../utils/badges';
 import {
   getSubscription, saveSubscription, grantSubscription,
   SUBSCRIPTION_TIERS, SubscriptionTier, canUseCustomImages
 } from '../utils/subscription';
+import { canAssignRoles } from '../utils/userCatalog';
 import { UserAvatar, ICON_AVATARS } from './UserAvatar';
 import { BadgePill } from './BadgePill';
 
@@ -38,13 +39,13 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
   // Subscription state
   const [sub, setSub] = useState(getSubscription(user.username));
 
-  // Admin Grant Tool state
+  // Admin Grant Tool state (restricted strictly to envixyy)
   const [grantTarget, setGrantTarget] = useState('');
   const [grantTier, setGrantTier] = useState<SubscriptionTier>('plus');
   const [grantMessage, setGrantMessage] = useState('');
 
-  const isAdmin = isAdminOrOwner(user.username);
-  const hasSub = canUseCustomImages(user.username) || isAdmin;
+  const isOwner = canAssignRoles(user.username);
+  const hasSub = canUseCustomImages(user.username) || isOwner;
 
   useEffect(() => {
     setDisplayName(user.displayName);
@@ -454,14 +455,14 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
             </div>
           </div>
 
-          {/* Admin Subscription Grant Panel */}
-          {isAdmin && (
-            <div className="bg-[#15161c] border border-purple-500/30 p-5 rounded-3xl shadow-xl space-y-3">
-              <div className="flex items-center gap-2 border-b border-purple-500/20 pb-2">
-                <ShieldAlert size={16} className="text-purple-400" />
+          {/* Owner Subscription Grant Panel */}
+          {isOwner && (
+            <div className="bg-[#15161c] border border-amber-500/30 p-5 rounded-3xl shadow-xl space-y-3">
+              <div className="flex items-center gap-2 border-b border-amber-500/20 pb-2">
+                <ShieldAlert size={16} className="text-amber-400" />
                 <div>
-                  <h4 className="font-black text-xs text-white">Admin Grant Console</h4>
-                  <p className="text-[9px] text-purple-300 font-bold">Grant Subscriptions & Custom Perks</p>
+                  <h4 className="font-black text-xs text-white">Owner Authority Console</h4>
+                  <p className="text-[9px] text-amber-300 font-bold">Grant Subscriptions & Custom Perks</p>
                 </div>
               </div>
 
@@ -475,7 +476,7 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
                     value={grantTarget}
                     onChange={e => setGrantTarget(e.target.value)}
                     placeholder="friend_username or self"
-                    className="w-full bg-[#0d0e12] border border-[#2c2e38] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-purple-400 font-semibold"
+                    className="w-full bg-[#0d0e12] border border-[#2c2e38] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-amber-400 font-semibold"
                   />
                 </div>
 
@@ -497,10 +498,10 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
 
                 <button
                   type="submit"
-                  className="w-full py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
+                  className="w-full py-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
                 >
                   <Zap size={12} />
-                  Execute Admin Grant
+                  Execute Owner Grant
                 </button>
 
                 {grantMessage && (
@@ -525,7 +526,7 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
               </div>
               <div className="flex justify-between items-center py-1">
                 <span className="text-gray-400">Authority Level</span>
-                <span className="font-bold text-[#facc15]">{isAdmin ? '👑 Administrator' : 'User'}</span>
+                <span className="font-bold text-[#facc15]">{isOwner ? '👑 Network Owner' : 'Member'}</span>
               </div>
             </div>
           </div>
