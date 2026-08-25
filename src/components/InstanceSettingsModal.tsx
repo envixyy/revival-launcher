@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Folder, Trash2, Save, HardDrive } from 'lucide-react';
+import { X, Folder, Trash2, Save, HardDrive, Upload } from 'lucide-react';
 import { safeInvoke } from '../utils/tauri';
 
 interface Instance {
@@ -10,6 +10,7 @@ interface Instance {
   max_memory?: number;
   min_memory?: number;
   java_path?: string | null;
+  icon?: string | null;
 }
 
 interface InstanceSettingsModalProps {
@@ -26,6 +27,7 @@ export function InstanceSettingsModal({ instance, onClose, onUpdate }: InstanceS
   const [maxMemory, setMaxMemory] = useState(instance.max_memory || 4096);
   const [minMemory] = useState(instance.min_memory || 2048);
   const [javaPath, setJavaPath] = useState(instance.java_path || '');
+  const [icon, setIcon] = useState<string | null>(instance.icon || null);
   const [loading, setLoading] = useState(false);
   const [mcVersions, setMcVersions] = useState<string[]>([]);
   const [javaPaths, setJavaPaths] = useState<string[]>([]);
@@ -57,6 +59,16 @@ export function InstanceSettingsModal({ instance, onClose, onUpdate }: InstanceS
     detectJava();
   }, []);
 
+  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setIcon(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -70,7 +82,8 @@ export function InstanceSettingsModal({ instance, onClose, onUpdate }: InstanceS
         loader_version: loaderVersion,
         max_memory: maxMemory,
         min_memory: minMemory,
-        java_path: javaPath || null
+        java_path: javaPath || null,
+        icon
       });
       onUpdate();
       onClose();
@@ -127,6 +140,36 @@ export function InstanceSettingsModal({ instance, onClose, onUpdate }: InstanceS
           
           {/* General Settings */}
           <div className="space-y-4">
+            {/* Custom Icon Uploader */}
+            <div className="bg-[#15161c] border border-[#2c2e38] rounded-2xl p-4 flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#0d0e12] border border-[#2c2e38] flex items-center justify-center text-2xl shadow-inner relative overflow-hidden flex-shrink-0">
+                {icon ? (
+                  <img src={icon} alt="Instance Icon" className="w-full h-full object-cover" />
+                ) : (
+                  <Folder className="text-gray-600" size={24} />
+                )}
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Custom Instance Icon</p>
+                <div className="flex items-center gap-2">
+                  <label className="px-3 py-1.5 bg-[#20222a] border border-[#2c2e38] hover:bg-[#2c2e38] text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5">
+                    <Upload size={12} />
+                    Upload Image
+                    <input type="file" accept="image/*" className="hidden" onChange={handleIconUpload} />
+                  </label>
+                  {icon && (
+                    <button
+                      type="button"
+                      onClick={() => setIcon(null)}
+                      className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-bold transition-all"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wider">Instance Name</label>
               <input 

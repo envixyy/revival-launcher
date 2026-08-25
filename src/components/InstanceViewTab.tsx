@@ -8,12 +8,14 @@ interface Instance {
   mc_version: string;
   loader: string;
   loader_version: string;
+  icon?: string | null;
 }
 
 interface ModItem {
   filename: string;
   name: string;
   enabled: boolean;
+  icon_url?: string | null;
 }
 
 interface InstanceViewTabProps {
@@ -90,8 +92,12 @@ export function InstanceViewTab({ instance, onBack, onLaunch }: InstanceViewTabP
       {/* Modpack Header Bar */}
       <div className="bg-[#1c1d22] border border-[#2c2e38] rounded-3xl p-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-yellow-400/20 border border-yellow-400/40 flex items-center justify-center text-3xl font-black text-yellow-300">
-            {instance.loader === 'Vanilla' ? '🌳' : '🧵'}
+          <div className="w-16 h-16 rounded-2xl bg-yellow-400/20 border border-yellow-400/40 flex items-center justify-center text-3xl font-black text-yellow-300 overflow-hidden">
+            {instance.icon ? (
+              <img src={instance.icon} alt={instance.name} className="w-full h-full object-cover" />
+            ) : (
+              instance.loader === 'Vanilla' ? '🌳' : '🧵'
+            )}
           </div>
           <div>
             <h1 className="text-2xl font-black text-white">{instance.name}</h1>
@@ -188,14 +194,24 @@ export function InstanceViewTab({ instance, onBack, onLaunch }: InstanceViewTabP
                 {filteredMods.map((mod) => (
                   <div key={mod.filename} className="grid grid-cols-12 px-5 py-3.5 items-center hover:bg-[#22242c] transition-colors">
                     <div className="col-span-6 flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-[#2a2c36] flex items-center justify-center text-base flex-shrink-0">
-                        🧩
+                      <div className="w-8 h-8 rounded-lg bg-[#2a2c36] border border-[#3c3e4a]/40 flex items-center justify-center text-base flex-shrink-0 overflow-hidden">
+                        {mod.icon_url ? (
+                          <img src={mod.icon_url} alt={mod.name} className="w-full h-full object-cover" />
+                        ) : contentCategory === 'resourcepacks' ? (
+                          '🎨'
+                        ) : contentCategory === 'shaders' ? (
+                          '🔮'
+                        ) : (
+                          '🧩'
+                        )}
                       </div>
                       <div className="min-w-0">
                         <p className={`font-bold text-xs truncate ${mod.enabled ? 'text-white' : 'text-gray-500 line-through'}`}>
                           {mod.name}
                         </p>
-                        <p className="text-[10px] text-gray-400 truncate">Local mod jar</p>
+                        <p className="text-[10px] text-gray-400 truncate">
+                          {mod.icon_url ? 'Modrinth Verified' : contentCategory === 'mods' ? 'Local mod jar' : contentCategory === 'shaders' ? 'Local shader pack' : 'Local resource pack'}
+                        </p>
                       </div>
                     </div>
 

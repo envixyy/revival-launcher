@@ -22,6 +22,7 @@ interface Instance {
   min_memory?: number;
   java_path?: string | null;
   last_played?: string | null;
+  icon?: string | null;
 }
 
 interface HomeTabProps {
@@ -606,8 +607,12 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative flex-shrink-0">
-                      <div className="w-11 h-11 rounded-2xl bg-[#20222a] border border-[#343744] flex items-center justify-center text-xl shadow-md group-hover:scale-105 transition-transform">
-                        <LoaderIconComp loader={inst.loader} />
+                      <div className="w-11 h-11 rounded-2xl bg-[#20222a] border border-[#343744] flex items-center justify-center text-xl shadow-md group-hover:scale-105 transition-transform overflow-hidden">
+                        {inst.icon ? (
+                          <img src={inst.icon} alt={inst.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <LoaderIconComp loader={inst.loader} />
+                        )}
                       </div>
                       {isRunning && (
                         <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#facc15] ring-2 ring-[#15161c] animate-pulse" />

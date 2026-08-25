@@ -3,6 +3,7 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const crypto = require('crypto');
 const { Client, Authenticator } = require('minecraft-launcher-core');
 
 try {
@@ -561,12 +562,13 @@ ipcMain.handle('create_instance', async (event, { name, mc_version, loader, load
     min_memory: 2048,
     max_memory: 4096,
     last_played: null,
+    icon: null,
   };
   fs.writeFileSync(path.join(instancePath, 'instance.json'), JSON.stringify(manifest, null, 2));
   return manifest;
 });
 
-ipcMain.handle('update_instance_settings', async (event, { oldName, name, mc_version, loader, loader_version, max_memory, min_memory, java_path }) => {
+ipcMain.handle('update_instance_settings', async (event, { oldName, name, mc_version, loader, loader_version, max_memory, min_memory, java_path, icon }) => {
   const oldSafeName = oldName.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/ /g, '_');
   const oldInstancePath = path.join(getInstancesDir(), oldSafeName);
   
@@ -584,6 +586,9 @@ ipcMain.handle('update_instance_settings', async (event, { oldName, name, mc_ver
   manifest.max_memory = parseInt(max_memory) || 4096;
   manifest.min_memory = parseInt(min_memory) || 2048;
   manifest.java_path = java_path || null;
+  if (icon !== undefined) {
+    manifest.icon = icon;
+  }
   
   if (oldInstancePath !== newInstancePath) {
     if (fs.existsSync(newInstancePath)) throw new Error('An instance with that name already exists');
@@ -808,14 +813,136 @@ ipcMain.handle('launch_instance', async (event, { name }) => {
   return `Launching '${manifest.name}' (${manifest.mc_version} ${manifest.loader || 'vanilla'})...`;
 });
 
+function getFileSha1(filePath) {
+  return new Promise((resolve) => {
+    try {
+      const hash = crypto.createHash('sha1');
+      const stream = fs.createReadStream(filePath);
+      stream.on('data', data => hash.update(data));
+      stream.on('end', () => resolve(hash.digest('hex')));
+      stream.on('error', () => resolve(null));
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function loadModrinthCache() {
+  const cachePath = path.join(getAppDataDir(), 'modrinth_cache.json');
+  if (fs.existsSync(cachePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    } catch {}
+  }
+  return {};
+}
+
+function saveModrinthCache(cache) {
+  const cachePath = path.join(getAppDataDir(), 'modrinth_cache.json');
+  try {
+    fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
+  } catch {}
+}
+
+async function fetchModrinthMetadata(hashes) {
+  if (!hashes || hashes.length === 0) return {};
+  const results = {};
+  try {
+    const verRes = await fetch('https://api.modrinth.com/v2/version_files', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'RevivalLauncher/1.0'
+      },
+      body: JSON.stringify({ hashes, algorithm: 'sha1' })
+    });
+    if (!verRes.ok) return {};
+    const verData = await verRes.json();
+    const projectIds = new Set();
+    const hashToProjId = {};
+    for (const [hash, verObj] of Object.entries(verData)) {
+      if (verObj && verObj.project_id) {
+        projectIds.add(verObj.project_id);
+        hashToProjId[hash] = verObj.project_id;
+      }
+    }
+    if (projectIds.size === 0) return {};
+    const projIdsStr = JSON.stringify(Array.from(projectIds));
+    const projRes = await fetch(`https://api.modrinth.com/v2/projects?ids=${encodeURIComponent(projIdsStr)}`, {
+      headers: { 'User-Agent': 'RevivalLauncher/1.0' }
+    });
+    if (!projRes.ok) return {};
+    const projData = await projRes.json();
+    const projMap = {};
+    for (const proj of projData) {
+      projMap[proj.id] = {
+        title: proj.title,
+        icon_url: proj.icon_url
+      };
+    }
+    for (const hash of hashes) {
+      const pid = hashToProjId[hash];
+      if (pid && projMap[pid]) {
+        results[hash] = projMap[pid];
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch Modrinth metadata:', err);
+  }
+  return results;
+}
+
 ipcMain.handle('list_mods', async (event, { name, folder = 'mods' }) => {
   const targetPath = path.join(getInstancePath(name), folder);
   if (!fs.existsSync(targetPath)) return [];
-  return fs.readdirSync(targetPath).map(file => ({
-    filename: file,
-    name: file.endsWith('.disabled') ? file.slice(0, -9) : file,
-    enabled: !file.endsWith('.disabled'),
-  }));
+  const files = fs.readdirSync(targetPath).filter(file => {
+    const p = path.join(targetPath, file);
+    return !fs.statSync(p).isDirectory();
+  });
+  const cache = loadModrinthCache();
+  const fileItems = [];
+  const hashesToLookup = [];
+  const fileToHash = {};
+  for (const file of files) {
+    const filePath = path.join(targetPath, file);
+    const sha1 = await getFileSha1(filePath);
+    const displayName = file.endsWith('.disabled') ? file.slice(0, -9) : file;
+    const item = {
+      filename: file,
+      name: displayName,
+      enabled: !file.endsWith('.disabled'),
+      icon_url: null,
+    };
+    if (sha1) {
+      fileToHash[file] = sha1;
+      if (cache[sha1]) {
+        item.name = cache[sha1].title || item.name;
+        item.icon_url = cache[sha1].icon_url || null;
+      } else {
+        hashesToLookup.push(sha1);
+      }
+    }
+    fileItems.push(item);
+  }
+  if (hashesToLookup.length > 0) {
+    const freshMetadata = await fetchModrinthMetadata(hashesToLookup);
+    let cacheUpdated = false;
+    for (const [hash, meta] of Object.entries(freshMetadata)) {
+      cache[hash] = meta;
+      cacheUpdated = true;
+    }
+    if (cacheUpdated) {
+      saveModrinthCache(cache);
+      for (const item of fileItems) {
+        const hash = fileToHash[item.filename];
+        if (hash && cache[hash]) {
+          item.name = cache[hash].title || item.name;
+          item.icon_url = cache[hash].icon_url || null;
+        }
+      }
+    }
+  }
+  return fileItems;
 });
 
 ipcMain.handle('toggle_mod', async (event, { name, filename, folder = 'mods' }) => {
