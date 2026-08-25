@@ -133,7 +133,6 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
     } catch { /* ignore */ }
   };
 
-  // Add friend directly from catalog or search
   const handleAddFriendFromCatalog = (target: CatalogUser) => {
     const existing = loadFriends();
     if (existing.some(f => f.username.toLowerCase() === target.username.toLowerCase())) return;
@@ -171,6 +170,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
 
   const handleRemoveFriend = (username: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!confirm(`Remove @${username} from your friends list?`)) return;
     const updated = loadFriends().filter(f => f.username.toLowerCase() !== username.toLowerCase());
     saveFriends(updated);
     setFriends(updated);
@@ -229,37 +229,37 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
   });
 
   return (
-    <div className="w-68 h-full bg-[#0d0e12] border-l border-[#1e2028] flex flex-col select-none flex-shrink-0 overflow-hidden">
+    <div className="w-76 h-full bg-[#0d0e12] border-l border-[#1e2028] flex flex-col select-none flex-shrink-0 overflow-hidden">
       {/* Upper Area */}
       <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar p-3.5 gap-3">
 
-        {/* Profile Card */}
-        <div className="bg-[#15161c] border border-[#2c2e38] rounded-2xl p-3 flex flex-col gap-2 shadow-md">
-          <div className="flex items-center gap-2.5">
+        {/* Current User Profile Card */}
+        <div className="bg-[#15161c] border border-[#2c2e38] rounded-2xl p-3.5 flex flex-col gap-2 shadow-md">
+          <div className="flex items-center gap-3">
             <div className="relative flex-shrink-0">
               <UserAvatar
-                avatarKeyOrUrl={user.avatar}
+                avatarKeyOrUrl={mySub.customAvatarUrl || user.avatar}
                 name={user.displayName}
                 size="md"
                 isSubscribed={mySub.active}
               />
-              <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-[#15161c] ${statusColors[statusType]}`} />
+              <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-[#15161c] ${statusColors[statusType]}`} />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {myRoleTag && (
-                  <span className={`text-[9.5px] font-black uppercase ${myRoleTag.colorClass}`}>
+                  <span className={`text-[9.5px] font-black uppercase px-1.5 py-0.2 rounded bg-black/40 ${myRoleTag.colorClass}`}>
                     {myRoleTag.tag}
                   </span>
                 )}
                 <h4 className="font-black text-xs text-white truncate leading-tight">{user.displayName}</h4>
               </div>
               <div className="flex items-center gap-1 mt-0.5">
-                <p className="text-[9px] text-gray-500 font-bold">@{user.username}</p>
-                {myBadges.slice(0, 1).map(b => (
-                  <BadgePill key={b.role} badge={b} size="sm" />
-                ))}
+                <p className="text-[9.5px] text-gray-500 font-bold">@{user.username}</p>
+                {myBadges[0] && (
+                  <BadgePill badge={myBadges[0]} size="sm" />
+                )}
               </div>
             </div>
 
@@ -268,34 +268,36 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
               title="Sign Out"
               className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
             >
-              <LogOut size={13} />
+              <LogOut size={14} />
             </button>
           </div>
 
-          <div className="border-t border-[#2c2e38]/50 pt-1 flex items-center justify-between text-[9.5px]">
-            <span className="text-gray-400 italic truncate max-w-[140px]" title={statusMsg}>"{statusMsg}"</span>
+          <div className="border-t border-[#2c2e38]/60 pt-1.5 flex items-center justify-between text-[10px]">
+            <span className="text-yellow-300/90 font-medium italic truncate max-w-[170px]" title={statusMsg}>
+              "{statusMsg}"
+            </span>
             {isOwner && (
-              <span className="text-[8px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.2 rounded border border-amber-400/20">
-                OWNER AUTH
+              <span className="text-[8px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+                OWNER
               </span>
             )}
           </div>
         </div>
 
-        {/* Fortnite-Style Navigation Tabs */}
-        <div className="flex bg-[#15161c] border border-[#2c2e38] p-1 rounded-xl gap-1">
+        {/* Clean Segmented Navigation Sub-Tabs */}
+        <div className="flex bg-[#14151b] border border-[#2c2e38] p-1 rounded-2xl gap-1 shadow-inner">
           <button
             onClick={() => setActiveSubTab('friends')}
-            className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+            className={`flex-1 py-1.5 rounded-xl text-[10.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
               activeSubTab === 'friends'
                 ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/10'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <Users size={12} />
+            <Users size={13} />
             <span>Friends</span>
             {friends.length > 0 && (
-              <span className={`text-[8.5px] px-1 rounded ${activeSubTab === 'friends' ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-300'}`}>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${activeSubTab === 'friends' ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-300'}`}>
                 {friends.length}
               </span>
             )}
@@ -303,42 +305,43 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
 
           <button
             onClick={() => setActiveSubTab('catalog')}
-            className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all ${
+            className={`flex-1 py-1.5 rounded-xl text-[10.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
               activeSubTab === 'catalog'
                 ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/10'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            <Globe size={12} />
+            <Globe size={13} />
             <span>Directory</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('requests')}
-            className={`py-1.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all relative ${
+            className={`py-1.5 px-3 rounded-xl text-[10.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all relative ${
               activeSubTab === 'requests'
                 ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/10'
                 : 'text-gray-400 hover:text-white'
             }`}
-            title="Friend Requests"
+            title="Friend Invites"
           >
-            <Inbox size={12} />
+            <Inbox size={13} />
+            <span>Invites</span>
             {requests.incoming.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-red-500 ring-2 ring-[#15161c] absolute -top-0.5 -right-0.5 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-red-500 ring-2 ring-[#14151b] absolute -top-0.5 -right-0.5 animate-pulse" />
             )}
           </button>
         </div>
 
         {/* TAB 1: FRIENDS LIST */}
         {activeSubTab === 'friends' && (
-          <div className="flex-1 flex flex-col min-h-0 space-y-1.5">
+          <div className="flex-1 flex flex-col min-h-0 space-y-2">
             {friends.length === 0 ? (
               <div className="text-center py-8 flex flex-col items-center gap-2 bg-[#15161c]/40 rounded-2xl border border-dashed border-[#2c2e38] p-4">
                 <Users size={22} className="text-gray-500" />
-                <p className="text-[10px] text-gray-400 font-bold">No friends added yet</p>
+                <p className="text-xs text-gray-400 font-bold">No friends added yet</p>
                 <button
                   onClick={() => setActiveSubTab('catalog')}
-                  className="text-[9.5px] text-[#facc15] font-black hover:underline"
+                  className="text-xs text-[#facc15] font-black hover:underline"
                 >
                   + Browse Player Directory
                 </button>
@@ -352,66 +355,80 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                 return (
                   <div
                     key={friend.username}
-                    className="flex items-center gap-2 hover:bg-[#181920] p-2 rounded-xl border border-transparent hover:border-[#2c2e38] transition-all group cursor-pointer"
-                    onClick={() => onStartChat(friend)}
+                    className="bg-[#15161c] border border-[#2c2e38] hover:border-[#facc15]/50 rounded-2xl p-2.5 flex flex-col gap-1.5 transition-all shadow-sm group"
                   >
-                    <div className="relative flex-shrink-0">
-                      <UserAvatar
-                        avatarKeyOrUrl={friend.avatar}
-                        name={friend.displayName}
-                        size="sm"
-                        isSubscribed={fSub.active}
-                      />
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0d0e12] bg-[#facc15]" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1 min-w-0">
-                          {fRoleTag && (
-                            <span className={`text-[9px] font-black uppercase flex-shrink-0 ${fRoleTag.colorClass}`}>
-                              {fRoleTag.tag}
-                            </span>
-                          )}
-                          <p className="font-extrabold text-xs text-white truncate group-hover:text-[#facc15] transition-colors">
-                            {friend.displayName}
-                          </p>
-                          {fBadges[0] && (
-                            <BadgePill badge={fBadges[0]} size="sm" />
-                          )}
+                    {/* Header Row: Avatar, Name, Badges */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div
+                        className="flex items-center gap-2.5 min-w-0 cursor-pointer"
+                        onClick={() => onStartChat(friend)}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <UserAvatar
+                            avatarKeyOrUrl={fSub.customAvatarUrl || friend.avatar}
+                            name={friend.displayName}
+                            size="sm"
+                            isSubscribed={fSub.active}
+                          />
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#15161c] bg-[#facc15]" />
                         </div>
 
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
-                          <button
-                            onClick={e => { e.stopPropagation(); setProfileUser({ username: friend.username, displayName: friend.displayName, avatar: friend.avatar }); }}
-                            className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-[#facc15] transition-colors"
-                            title="View Profile"
-                          >
-                            <Eye size={11} />
-                          </button>
-                          {isOwner && (
-                            <button
-                              onClick={e => openRoleModal(friend, e)}
-                              className="p-1 rounded hover:bg-amber-500/20 text-amber-400 transition-colors"
-                              title="👑 Owner: Manage Roles"
-                            >
-                              <Crown size={11} />
-                            </button>
-                          )}
-                          <MessageSquare size={11} className="text-[#facc15]" />
-                          <button
-                            onClick={e => handleRemoveFriend(friend.username, e)}
-                            className="p-0.5 hover:text-red-400 text-gray-600 transition-colors ml-0.5"
-                            title="Remove friend"
-                          >
-                            <X size={10} />
-                          </button>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {fRoleTag && (
+                              <span className={`text-[8.5px] font-black uppercase ${fRoleTag.colorClass}`}>
+                                {fRoleTag.tag}
+                              </span>
+                            )}
+                            <h4 className="font-extrabold text-xs text-white truncate group-hover:text-[#facc15] transition-colors">
+                              {friend.displayName}
+                            </h4>
+                          </div>
+                          <p className="text-[9.5px] text-[#facc15]/90 font-semibold truncate leading-tight mt-0.5">
+                            🎮 {friend.status || 'In Launcher Lobby'}
+                          </p>
                         </div>
                       </div>
-                      <p className="text-[9px] text-gray-500 truncate leading-tight mt-0.5 font-medium">
-                        {friend.status ?? 'Online'}
-                      </p>
+
+                      {fBadges[0] && (
+                        <BadgePill badge={fBadges[0]} size="sm" />
+                      )}
+                    </div>
+
+                    {/* Action Toolbar */}
+                    <div className="border-t border-[#2c2e38]/50 pt-1.5 flex items-center justify-between">
+                      <button
+                        onClick={() => onStartChat(friend)}
+                        className="px-2 py-0.5 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-[9.5px] rounded-lg transition-all flex items-center gap-1 shadow-sm active:scale-95"
+                      >
+                        <MessageSquare size={10} /> Chat
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={e => { e.stopPropagation(); setProfileUser({ username: friend.username, displayName: friend.displayName, avatar: fSub.customAvatarUrl || friend.avatar }); }}
+                          className="px-1.5 py-0.5 rounded-lg bg-[#20222a] hover:bg-[#2c2e38] text-gray-300 hover:text-white text-[9.5px] font-bold transition-all flex items-center gap-0.5"
+                          title="View Profile"
+                        >
+                          <Eye size={10} /> Profile
+                        </button>
+                        {isOwner && (
+                          <button
+                            onClick={e => openRoleModal(friend, e)}
+                            className="p-1 rounded-lg bg-amber-400/10 hover:bg-amber-400/20 text-amber-400 transition-colors"
+                            title="👑 Owner: Manage Roles"
+                          >
+                            <Crown size={11} />
+                          </button>
+                        )}
+                        <button
+                          onClick={e => handleRemoveFriend(friend.username, e)}
+                          className="p-1 hover:bg-red-500/10 rounded-lg text-gray-500 hover:text-red-400 transition-colors"
+                          title="Remove Friend"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -431,7 +448,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search network players..."
-                className="w-full bg-[#15161c] border border-[#2c2e38] rounded-xl pl-8 pr-3 py-1.5 text-[10px] text-white outline-none focus:border-[#facc15] font-semibold"
+                className="w-full bg-[#15161c] border border-[#2c2e38] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white outline-none focus:border-[#facc15] font-semibold"
               />
             </div>
 
@@ -442,21 +459,21 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                 value={quickAddUser}
                 onChange={e => setQuickAddUser(e.target.value)}
                 placeholder="Add @username..."
-                className="flex-1 bg-[#0d0e12] border border-[#2c2e38] rounded-lg px-2 py-1 text-[10px] text-white outline-none focus:border-[#facc15] font-medium"
+                className="flex-1 bg-[#0d0e12] border border-[#2c2e38] rounded-lg px-2.5 py-1 text-xs text-white outline-none focus:border-[#facc15] font-medium"
               />
               <button
                 type="submit"
-                className="px-2.5 py-1 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-[10px] rounded-lg transition-all flex items-center gap-1"
+                className="px-2.5 py-1 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-xs rounded-lg transition-all flex items-center gap-1"
               >
                 <UserPlus size={11} /> Add
               </button>
             </form>
             {quickAddFeedback && (
-              <p className="text-[9px] text-[#facc15] font-bold px-1 animate-fade-in">{quickAddFeedback}</p>
+              <p className="text-[9.5px] text-[#facc15] font-bold px-1 animate-fade-in">{quickAddFeedback}</p>
             )}
 
             {/* Catalog List */}
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-1.5">
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-2">
               {filteredCatalog.map(target => {
                 const targetBadges = getBadgesForUser(target.username);
                 const targetRoleTag = getRoleTag(target.username);
@@ -466,22 +483,22 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                 return (
                   <div
                     key={target.username}
-                    className="bg-[#15161c] border border-[#2c2e38] hover:border-[#facc15]/40 rounded-xl p-2.5 flex flex-col gap-1.5 transition-all"
+                    className="bg-[#15161c] border border-[#2c2e38] hover:border-[#facc15]/40 rounded-xl p-2.5 flex flex-col gap-1.5 transition-all shadow-sm"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <div className="relative flex-shrink-0">
                           <UserAvatar
-                            avatarKeyOrUrl={target.avatar}
+                            avatarKeyOrUrl={targetSub.customAvatarUrl || target.avatar}
                             name={target.displayName}
                             size="sm"
                             isSubscribed={targetSub.active}
                           />
-                          <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-[#0d0e12] ${target.isOnline ? 'bg-green-400' : 'bg-gray-600'}`} />
+                          <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-1 ring-[#0d0e12] ${target.isOnline ? 'bg-green-400' : 'bg-gray-600'}`} />
                         </div>
 
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             {targetRoleTag && (
                               <span className={`text-[8.5px] font-black uppercase ${targetRoleTag.colorClass}`}>
                                 {targetRoleTag.tag}
@@ -489,7 +506,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                             )}
                             <h5 className="font-extrabold text-xs text-white truncate">{target.displayName}</h5>
                           </div>
-                          <p className="text-[8.5px] text-gray-500 font-semibold truncate">@{target.username}</p>
+                          <p className="text-[9px] text-gray-500 font-semibold truncate">@{target.username}</p>
                         </div>
                       </div>
 
@@ -499,38 +516,38 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                       )}
                     </div>
 
-                    <div className="text-[9px] text-gray-400 flex items-center justify-between border-t border-[#2c2e38]/50 pt-1">
-                      <span className="truncate text-yellow-300/80 font-medium">🎮 {target.activity || target.status}</span>
+                    <div className="text-[9.5px] text-gray-400 flex items-center justify-between border-t border-[#2c2e38]/50 pt-1.5">
+                      <span className="truncate text-yellow-300/80 font-medium max-w-[140px]">🎮 {target.activity || target.status || 'Online'}</span>
 
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
-                          onClick={() => setProfileUser({ username: target.username, displayName: target.displayName, avatar: target.avatar })}
-                          className="px-1.5 py-0.5 rounded bg-white/5 text-gray-400 hover:bg-white/10 hover:text-[#facc15] text-[8.5px] font-black flex items-center gap-0.5 transition-all"
+                          onClick={() => setProfileUser({ username: target.username, displayName: target.displayName, avatar: targetSub.customAvatarUrl || target.avatar })}
+                          className="px-1.5 py-0.5 rounded-lg bg-[#20222a] hover:bg-[#2c2e38] text-gray-300 hover:text-white text-[9px] font-bold flex items-center gap-0.5 transition-all"
                           title="View Profile"
                         >
-                          <Eye size={9} />
+                          <Eye size={10} /> Profile
                         </button>
                         {isOwner && (
                           <button
                             onClick={() => openRoleModal(target)}
-                            className="px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 hover:bg-amber-400/20 text-[8.5px] font-black flex items-center gap-0.5 transition-all"
+                            className="px-1.5 py-0.5 rounded-lg bg-amber-400/10 text-amber-400 hover:bg-amber-400/20 text-[9px] font-black flex items-center gap-0.5 transition-all"
                             title="👑 Owner: Assign Roles"
                           >
-                            <Crown size={9} /> Role
+                            <Crown size={10} /> Role
                           </button>
                         )}
 
                         {isAlreadyFriend ? (
                           <button
-                            onClick={() => onStartChat({ username: target.username, displayName: target.displayName, avatar: target.avatar, addedAt: Date.now() })}
-                            className="px-2 py-0.5 bg-[#facc15] hover:bg-yellow-300 text-black font-black text-[9px] rounded-lg transition-all flex items-center gap-0.5"
+                            onClick={() => onStartChat({ username: target.username, displayName: target.displayName, avatar: targetSub.customAvatarUrl || target.avatar, addedAt: Date.now() })}
+                            className="px-2 py-0.5 bg-[#facc15] hover:bg-yellow-300 text-black font-black text-[9.5px] rounded-lg transition-all flex items-center gap-0.5 shadow-sm"
                           >
                             <MessageSquare size={10} /> Chat
                           </button>
                         ) : (
                           <button
                             onClick={() => handleAddFriendFromCatalog(target)}
-                            className="px-2 py-0.5 bg-[#20222a] hover:bg-[#facc15] hover:text-black text-gray-300 font-bold text-[9px] rounded-lg transition-all flex items-center gap-0.5"
+                            className="px-2 py-0.5 bg-[#20222a] hover:bg-[#facc15] hover:text-black text-gray-300 font-bold text-[9.5px] rounded-lg transition-all flex items-center gap-0.5 border border-[#2c2e38]"
                           >
                             <UserPlus size={10} /> Add
                           </button>
@@ -552,7 +569,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
             </h5>
 
             {requests.incoming.length === 0 ? (
-              <div className="text-center py-6 bg-[#15161c]/40 rounded-2xl border border-dashed border-[#2c2e38] p-3 text-gray-500 text-[10px] font-bold">
+              <div className="text-center py-6 bg-[#15161c]/40 rounded-2xl border border-dashed border-[#2c2e38] p-3 text-gray-500 text-xs font-bold">
                 No pending requests
               </div>
             ) : (
@@ -560,7 +577,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                 <div key={req.id} className="bg-[#15161c] border border-[#2c2e38] rounded-xl p-2.5 flex items-center justify-between">
                   <div>
                     <h6 className="font-extrabold text-xs text-white">@{req.fromUsername}</h6>
-                    <span className="text-[8.5px] text-gray-500 flex items-center gap-1"><Clock size={9} /> Requested to be friends</span>
+                    <span className="text-[9px] text-gray-400 flex items-center gap-1 mt-0.5"><Clock size={10} /> Requested friend invite</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -568,14 +585,14 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
                       className="p-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"
                       title="Accept"
                     >
-                      <Check size={12} />
+                      <Check size={13} />
                     </button>
                     <button
                       onClick={() => handleRespondRequest(req.id, false)}
                       className="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
                       title="Decline"
                     >
-                      <X size={12} />
+                      <X size={13} />
                     </button>
                   </div>
                 </div>
@@ -587,7 +604,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
 
       {/* OWNER ROLE ASSIGNMENT MODAL (ONLY VISIBLE TO "envixyy") */}
       {isOwner && roleModalUser && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-[#15161c] border border-amber-400/40 rounded-3xl p-6 w-full max-w-sm shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#2c2e38] pb-3">
               <div className="flex items-center gap-2">
@@ -630,7 +647,7 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
             <div className="pt-2 flex items-center gap-2">
               <button
                 onClick={handleSaveAssignedRoles}
-                className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs rounded-xl shadow-lg shadow-yellow-500/20 transition-all flex items-center justify-center gap-1"
+                className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-black text-xs rounded-xl shadow-lg shadow-yellow-500/20 flex items-center justify-center gap-1"
               >
                 <Check size={13} /> Save Assigned Roles
               </button>
