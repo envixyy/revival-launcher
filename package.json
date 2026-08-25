@@ -3,7 +3,7 @@
   "description": "Revival Launcher for Minecraft instances and modpacks",
   "author": "Revival Launcher",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",

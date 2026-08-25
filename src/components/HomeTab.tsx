@@ -10,6 +10,7 @@ import { safeInvoke, isElectron } from '../utils/tauri';
 import { CreateInstanceModal } from './CreateInstanceModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
 import { ImportModal } from './ImportModal';
+import { ReleaseNotesModal } from './ReleaseNotesModal';
 import { SEVERITY_STYLES, getAnnouncements, addAnnouncement, deleteAnnouncement, Announcement, AnnouncementSeverity } from '../utils/announcements';
 import { canAssignRoles } from '../utils/userCatalog';
 
@@ -156,6 +157,7 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
   const [showConsole, setShowConsole] = useState(false);
   const [runningInstances, setRunningInstances] = useState<Set<string>>(new Set());
   const [activeAnnouncementIdx, setActiveAnnouncementIdx] = useState(0);
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false);
   const consoleBottomRef = useRef<HTMLDivElement>(null);
 
   // Dynamic announcements state
@@ -374,6 +376,13 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
                 ))}
               </div>
             )}
+
+            <button
+              onClick={() => setShowReleaseNotes(true)}
+              className="px-2.5 py-1 rounded-xl bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-[10px] shadow-sm flex items-center gap-1 transition-all active:scale-95"
+            >
+              <Sparkles size={11} /> v0.3.0 Patch Notes
+            </button>
 
             {/* Owner controls */}
             {isOwner && (
@@ -715,6 +724,9 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
           onClose={() => setActiveInstanceForSettings(null)}
           onUpdate={fetchInstances}
         />
+      )}
+      {showReleaseNotes && (
+        <ReleaseNotesModal onClose={() => setShowReleaseNotes(false)} />
       )}
     </div>
   );

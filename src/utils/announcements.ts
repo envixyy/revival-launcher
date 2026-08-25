@@ -19,13 +19,20 @@ export interface Announcement {
 
 const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
   {
-    id: 'ann-001',
+    id: 'ann-002',
     severity: 'celebration',
-    title: 'Revival Network is LIVE!',
-    body: 'Welcome to Revival Launcher v0.2. Real friends system, custom profiles, and role management enabled.',
+    title: '🚀 Revival Launcher v0.3.0 Milestone Pre-Release',
+    body: 'Combined all v0.2.x updates! Added Suggestions Roadmap Forum, Friends Hub, Discord Profile Cards, Custom Instance Icons, Modrinth metadata caching, and strict PLUS+ perk locks.',
     date: 'Aug 25',
     url: 'https://github.com/envixyy/revival-launcher',
-    urlLabel: 'View GitHub',
+    urlLabel: 'Patch Notes',
+  },
+  {
+    id: 'ann-001',
+    severity: 'info',
+    title: 'Revival Network Social Hub',
+    body: 'Connect with real players, send direct messages with live sync, and request badges from owner @envixyy.',
+    date: 'Aug 25',
   },
 ];
 

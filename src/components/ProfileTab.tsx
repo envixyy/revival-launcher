@@ -96,6 +96,7 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
+    if (!hasSub) return; // Enforce PLUS+ Subscription Perk lock
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -114,7 +115,7 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    const effectiveAvatar = customAvatarUrl.trim() || avatar;
+    const effectiveAvatar = (hasSub && customAvatarUrl.trim()) ? customAvatarUrl.trim() : avatar;
     const updated = {
       username: user.username,
       displayName: displayName.trim() || user.username,
@@ -126,11 +127,11 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
     localStorage.setItem('revival_user_type', statusType);
     saveDisplayedBadges(user.username, selectedRoles);
 
-    // Save custom banner & avatar to subscription
+    // Save custom banner & avatar to subscription only if active subscriber
     const updatedSub = {
       ...sub,
-      customBannerUrl: bannerUrl.trim() || undefined,
-      customAvatarUrl: customAvatarUrl.trim() || undefined,
+      customBannerUrl: hasSub ? (bannerUrl.trim() || undefined) : undefined,
+      customAvatarUrl: hasSub ? (customAvatarUrl.trim() || undefined) : undefined,
     };
     saveSubscription(updatedSub);
     setSub(updatedSub);
@@ -315,7 +316,9 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
             </div>
 
             {/* Custom Banner Image Setting */}
-            <div className="bg-[#0d0e12] border border-[#2c2e38] rounded-2xl p-3.5 space-y-2.5">
+            <div className={`bg-[#0d0e12] border rounded-2xl p-3.5 space-y-2.5 transition-all relative ${
+              hasSub ? 'border-[#2c2e38]' : 'border-amber-500/30'
+            }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ImageIcon size={14} className="text-[#facc15]" />
@@ -326,41 +329,55 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
                     Unlocked
                   </span>
                 ) : (
-                  <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    Plus+ Perk
+                  <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                    <Lock size={10} /> PLUS+ PERK (LOCKED)
                   </span>
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={bannerUrl}
-                  onChange={e => setBannerUrl(e.target.value)}
-                  placeholder="https://example.com/banner.gif or image URL"
-                  className="flex-1 bg-[#15161c] border border-[#2c2e38] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-[#facc15] font-mono text-[11px]"
-                />
-                <label className="px-3 py-1.5 bg-[#20222a] hover:bg-[#2c2e38] text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border border-[#2c2e38] flex-shrink-0">
-                  <Upload size={12} />
-                  Upload
-                  <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'banner')} />
-                </label>
-              </div>
+              {!hasSub ? (
+                <div className="p-3.5 bg-[#18150e] border border-amber-500/30 rounded-xl text-xs font-medium text-amber-300 flex items-center gap-2.5">
+                  <Lock size={18} className="text-amber-400 flex-shrink-0" />
+                  <div>
+                    <p className="font-extrabold text-amber-400 text-xs">Locked Feature — Revival PLUS+ Required</p>
+                    <p className="text-[11px] text-amber-300/80 mt-0.5 leading-relaxed">
+                      Custom banner URLs and preset backgrounds are reserved for Revival PLUS+ and PRO members. Ask owner <code className="bg-amber-500/20 px-1 py-0.2 rounded font-mono">@envixyy</code> to unlock your subscription!
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={bannerUrl}
+                      onChange={e => setBannerUrl(e.target.value)}
+                      placeholder="https://example.com/banner.gif or image URL"
+                      className="flex-1 bg-[#15161c] border border-[#2c2e38] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-[#facc15] font-mono text-[11px]"
+                    />
+                    <label className="px-3 py-1.5 bg-[#20222a] hover:bg-[#2c2e38] text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border border-[#2c2e38] flex-shrink-0">
+                      <Upload size={12} />
+                      Upload
+                      <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'banner')} />
+                    </label>
+                  </div>
 
-              {/* Preset Banners */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                <span className="text-[9px] text-gray-500 font-bold uppercase mr-1">Presets:</span>
-                {PRESET_BANNERS.map(p => (
-                  <button
-                    key={p.name}
-                    type="button"
-                    onClick={() => setBannerUrl(p.url)}
-                    className="text-[9.5px] px-2 py-1 rounded-lg bg-[#181920] border border-[#2c2e38] text-gray-300 hover:text-[#facc15] hover:border-[#facc15]/40 transition-all font-semibold"
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
+                  {/* Preset Banners */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-[9px] text-gray-500 font-bold uppercase mr-1">Presets:</span>
+                    {PRESET_BANNERS.map(p => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => setBannerUrl(p.url)}
+                        className="text-[9.5px] px-2 py-1 rounded-lg bg-[#181920] border border-[#2c2e38] text-gray-300 hover:text-[#facc15] hover:border-[#facc15]/40 transition-all font-semibold"
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Custom Avatar / Icon Picker */}
@@ -404,18 +421,27 @@ export function ProfileTab({ user, onUpdateUser, onSignOut }: ProfileTabProps) {
 
               {/* Custom Image PFP upload */}
               <div className="pt-2 border-t border-[#2c2e38]/60 flex gap-2 items-center">
-                <input
-                  type="text"
-                  value={customAvatarUrl}
-                  onChange={e => setCustomAvatarUrl(e.target.value)}
-                  placeholder="Custom PFP Image URL (https://...)"
-                  className="flex-1 bg-[#15161c] border border-[#2c2e38] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-[#facc15] font-mono text-[11px]"
-                />
-                <label className="px-3 py-1.5 bg-[#20222a] hover:bg-[#2c2e38] text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border border-[#2c2e38] flex-shrink-0">
-                  <Upload size={12} />
-                  Upload PFP
-                  <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'avatar')} />
-                </label>
+                {!hasSub ? (
+                  <div className="w-full p-2.5 bg-[#18150e] border border-amber-500/20 rounded-xl text-[11px] text-amber-300 font-medium flex items-center gap-2">
+                    <Lock size={13} className="text-amber-400 flex-shrink-0" />
+                    <span>Custom image PFP uploads require Revival PLUS+. Vector icons remain unlocked for everyone.</span>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={customAvatarUrl}
+                      onChange={e => setCustomAvatarUrl(e.target.value)}
+                      placeholder="Custom PFP Image URL (https://...)"
+                      className="flex-1 bg-[#15161c] border border-[#2c2e38] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-[#facc15] font-mono text-[11px]"
+                    />
+                    <label className="px-3 py-1.5 bg-[#20222a] hover:bg-[#2c2e38] text-gray-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border border-[#2c2e38] flex-shrink-0">
+                      <Upload size={12} />
+                      Upload PFP
+                      <input type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'avatar')} />
+                    </label>
+                  </>
+                )}
               </div>
             </div>
 
