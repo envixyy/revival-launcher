@@ -41,9 +41,20 @@ function saveMessages(me: string, them: string, msgs: Message[]) {
 export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [showProfile, setShowProfile] = useState(false);
+  const [selectedUserForProfile, setSelectedUserForProfile] = useState<{ username: string; displayName: string; avatar: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // My details
+  const myUserData = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('revival_user') || '{}');
+    } catch {
+      return {};
+    }
+  })();
+  const myDisplayName = myUserData.displayName || myUsername;
+  const myAvatar = myUserData.avatar || 'crown';
 
   const friendBadges = getBadgesForUser(friend.username);
   const myBadges = getBadgesForUser(myUsername);
@@ -51,6 +62,10 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
   const mySub = getSubscription(myUsername);
   const friendRoleTag = getRoleTag(friend.username);
   const myRoleTag = getRoleTag(myUsername);
+
+  // Custom avatars if set
+  const friendAvatarFinal = friendSub.customAvatarUrl || friend.avatar;
+  const myAvatarFinal = mySub.customAvatarUrl || myAvatar;
 
   // Load history on mount
   useEffect(() => {
@@ -69,7 +84,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
     };
     window.addEventListener('storage', handleStorageChange);
 
-    // Also poll for same-window changes (storage events don't fire within the same context)
+    // Also poll for same-window changes
     const interval = setInterval(() => {
       const fresh = loadMessages(myUsername, friend.username);
       setMessages(prev => {
@@ -97,7 +112,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
 
     const newMsg: Message = {
       id: `${Date.now()}-${Math.random()}`,
-      sender: myUsername, // Store actual username, not 'me'
+      sender: myUsername,
       text,
       timestamp: Date.now(),
     };
@@ -120,16 +135,16 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
   let lastDateStr = '';
 
   return (
-    <div className="fixed bottom-4 right-[270px] w-84 h-[440px] bg-[#14151b] border border-[#facc15]/30 rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-fade-in">
+    <div className="fixed bottom-4 right-[270px] w-88 h-[460px] bg-[#14151b] border border-[#facc15]/30 rounded-2xl shadow-2xl z-40 flex flex-col overflow-hidden animate-fade-in">
       {/* Header */}
       <div className="bg-[#0c0d11] border-b border-[#2c2e38] px-4 py-2.5 flex items-center justify-between flex-shrink-0">
         <div
           className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => setShowProfile(true)}
-          title="View Profile"
+          onClick={() => setSelectedUserForProfile({ username: friend.username, displayName: friend.displayName, avatar: friendAvatarFinal })}
+          title="Click to view profile"
         >
           <UserAvatar
-            avatarKeyOrUrl={friend.avatar}
+            avatarKeyOrUrl={friendAvatarFinal}
             name={friend.displayName}
             size="sm"
             isSubscribed={friendSub.active}
@@ -152,18 +167,18 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setShowProfile(true)}
+            onClick={() => setSelectedUserForProfile({ username: friend.username, displayName: friend.displayName, avatar: friendAvatarFinal })}
             title="View Profile"
-            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500 hover:text-[#facc15] transition-colors"
+            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-400 hover:text-[#facc15] transition-colors"
           >
-            <User size={12} />
+            <User size={13} />
           </button>
           <button
             onClick={handleClear}
             title="Clear conversation"
-            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-500 hover:text-red-400 transition-colors"
+            className="p-1.5 hover:bg-white/5 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
           >
-            <Trash2 size={12} />
+            <Trash2 size={13} />
           </button>
           <button onClick={onClose} className="p-1.5 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
             <X size={14} />
@@ -171,12 +186,12 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 space-y-2 bg-[#0e0f14]/80">
+      {/* Messages list */}
+      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 space-y-3 bg-[#0e0f14]/80">
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center gap-2 text-center py-6">
             <UserAvatar
-              avatarKeyOrUrl={friend.avatar}
+              avatarKeyOrUrl={friendAvatarFinal}
               name={friend.displayName}
               size="lg"
               isSubscribed={friendSub.active}
@@ -198,67 +213,74 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
           </div>
         )}
 
-        {messages.map((msg, idx) => {
+        {messages.map((msg) => {
           const dateStr = fmtDate(msg.timestamp);
           const showDate = dateStr !== lastDateStr;
           lastDateStr = dateStr;
 
-          // Determine if this message was sent by us
           const isMe = msg.sender.toLowerCase() === myUsername.toLowerCase()
-            || msg.sender === 'me'; // backward compat for old messages
+            || msg.sender === 'me';
           const senderBadges = isMe ? myBadges : friendBadges;
-          const senderAvatar = isMe ? (localStorage.getItem('revival_user') ? JSON.parse(localStorage.getItem('revival_user')!).avatar : 'crown') : friend.avatar;
-          const senderName = isMe ? 'You' : friend.displayName;
+          const senderAvatar = isMe ? myAvatarFinal : friendAvatarFinal;
+          const senderName = isMe ? myDisplayName : friend.displayName;
+          const senderUsername = isMe ? myUsername : friend.username;
           const isSenderSubscribed = isMe ? mySub.active : friendSub.active;
           const senderRoleTag = isMe ? myRoleTag : friendRoleTag;
-
-          // Check if previous message had same sender
-          const prevMsg = idx > 0 ? messages[idx - 1] : null;
-          const prevIsMe = prevMsg ? (prevMsg.sender.toLowerCase() === myUsername.toLowerCase() || prevMsg.sender === 'me') : null;
-          const sameSenderAsPrev = prevMsg ? (isMe === prevIsMe) : false;
 
           return (
             <div key={msg.id}>
               {showDate && (
-                <div className="flex items-center gap-2 my-2.5">
+                <div className="flex items-center gap-2 my-3">
                   <div className="flex-1 h-px bg-[#2c2e38]" />
                   <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">{dateStr}</span>
                   <div className="flex-1 h-px bg-[#2c2e38]" />
                 </div>
               )}
-              <div className={`flex flex-col max-w-[85%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
-                {/* Sender tag with avatar, role tag, and badges */}
-                {!sameSenderAsPrev && (
-                  <div className="flex items-center gap-1.5 mb-1 px-1">
-                    <UserAvatar
-                      avatarKeyOrUrl={senderAvatar}
-                      name={senderName}
-                      size="sm"
-                      isSubscribed={isSenderSubscribed}
-                      className="w-4 h-4 rounded text-[8px]"
-                    />
+
+              {/* Message Row with Profile Picture next to bubble */}
+              <div className={`flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                {/* Clickable Profile Picture */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedUserForProfile({ username: senderUsername, displayName: senderName, avatar: senderAvatar })}
+                  className="flex-shrink-0 hover:scale-105 transition-transform mt-0.5"
+                  title={`View @${senderUsername}'s profile`}
+                >
+                  <UserAvatar
+                    avatarKeyOrUrl={senderAvatar}
+                    name={senderName}
+                    size="sm"
+                    isSubscribed={isSenderSubscribed}
+                  />
+                </button>
+
+                {/* Message Content Container */}
+                <div className={`flex flex-col max-w-[78%] ${isMe ? 'items-end' : 'items-start'}`}>
+                  {/* Sender Header */}
+                  <div className="flex items-center gap-1.5 mb-1 px-0.5">
                     {senderRoleTag && (
                       <span className={`text-[8.5px] font-black uppercase ${senderRoleTag.colorClass}`}>
                         {senderRoleTag.tag}
                       </span>
                     )}
-                    <span className="text-[8.5px] font-black text-gray-400">
-                      {senderName}
+                    <span className="text-[9px] font-black text-gray-300">
+                      {isMe ? 'You' : senderName}
                     </span>
                     {senderBadges[0] && (
                       <BadgePill badge={senderBadges[0]} size="sm" />
                     )}
                   </div>
-                )}
 
-                <div className={`px-3 py-2 rounded-2xl text-[11px] font-medium leading-relaxed shadow-md ${
-                  isMe
-                    ? 'bg-[#facc15] text-black font-semibold rounded-tr-sm'
-                    : 'bg-[#1a1b22] border border-[#2c2e38] text-gray-100 rounded-tl-sm'
-                }`}>
-                  {msg.text}
+                  {/* Message Bubble */}
+                  <div className={`px-3 py-2 rounded-2xl text-[11px] font-medium leading-relaxed shadow-md break-words ${
+                    isMe
+                      ? 'bg-[#facc15] text-black font-semibold rounded-tr-xs'
+                      : 'bg-[#1c1e27] border border-[#2c2e38] text-gray-100 rounded-tl-xs'
+                  }`}>
+                    {msg.text}
+                  </div>
+                  <span className="text-[8px] text-gray-500 mt-0.5 px-1">{fmt(msg.timestamp)}</span>
                 </div>
-                <span className="text-[8px] text-gray-500 mt-0.5 px-1">{fmt(msg.timestamp)}</span>
               </div>
             </div>
           );
@@ -266,7 +288,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
+      {/* Input Form */}
       <form onSubmit={handleSend} className="p-2.5 bg-[#0c0d11] border-t border-[#2c2e38] flex gap-2 flex-shrink-0">
         <input
           ref={inputRef}
@@ -279,19 +301,19 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
         <button
           type="submit"
           disabled={!inputText.trim()}
-          className="p-2 bg-[#facc15] text-black rounded-xl hover:bg-yellow-300 transition-all flex-shrink-0 disabled:opacity-40 shadow-sm"
+          className="p-2 bg-[#facc15] text-black rounded-xl hover:bg-yellow-300 transition-all flex-shrink-0 disabled:opacity-40 shadow-sm active:scale-95"
         >
           <Send size={13} />
         </button>
       </form>
 
-      {/* Friend Profile Modal */}
-      {showProfile && (
+      {/* User Profile Modal when clicking profile icon or header */}
+      {selectedUserForProfile && (
         <UserProfileModal
-          username={friend.username}
-          displayName={friend.displayName}
-          avatar={friend.avatar}
-          onClose={() => setShowProfile(false)}
+          username={selectedUserForProfile.username}
+          displayName={selectedUserForProfile.displayName}
+          avatar={selectedUserForProfile.avatar}
+          onClose={() => setSelectedUserForProfile(null)}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X, Star, Clock, MessageSquare } from 'lucide-react';
 import { getBadgesForUser, getRoleTag } from '../utils/badges';
 import { getSubscription, SUBSCRIPTION_TIERS } from '../utils/subscription';
@@ -18,10 +19,26 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
   const roleTag = getRoleTag(username);
   const hasSub = sub.active;
 
+  // Escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Load user status from localStorage
   const statusMsg = localStorage.getItem(`revival_status_${username}`) || 'Exploring modpacks on Revival...';
   const bannerUrl = sub.customBannerUrl || null;
-  const customAvatarUrl = sub.customAvatarUrl || null;
+
+  // Resolve best custom or fallback avatar
+  let customAvatarUrl = sub.customAvatarUrl || null;
+  if (!customAvatarUrl && avatar && (avatar.startsWith('http') || avatar.startsWith('data:image'))) {
+    customAvatarUrl = avatar;
+  }
 
   // Load join date from catalog
   let joinedLabel = 'Recently';
@@ -41,10 +58,11 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
     offline: 'bg-gray-600',
   };
   const statusType = localStorage.getItem(`revival_status_type_${username}`) || 'online';
+  const tierInfo = SUBSCRIPTION_TIERS[sub.tier === 'none' ? 'plus' : sub.tier];
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-sm animate-fade-in p-4"
+      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 backdrop-blur-md animate-fade-in p-4"
       onClick={onClose}
     >
       <div
@@ -62,11 +80,14 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
         >
           {/* Subtle overlay for readability */}
           {bannerUrl && <div className="absolute inset-0 bg-black/20" />}
+
+          {/* Prominent Close button */}
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-gray-400 hover:text-white transition-all z-20"
+            className="absolute top-3 right-3 p-2 rounded-full bg-black/70 hover:bg-black/90 text-white hover:scale-105 active:scale-95 transition-all z-30 shadow-lg border border-white/10"
+            title="Close Profile (Esc)"
           >
-            <X size={14} />
+            <X size={16} />
           </button>
         </div>
 
@@ -134,7 +155,7 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
                 <div className="flex items-center gap-2">
                   <Star size={14} className="text-[#facc15]" fill="currentColor" />
                   <div>
-                    <p className="text-[10px] font-black text-yellow-400">Revival {SUBSCRIPTION_TIERS[sub.tier === 'none' ? 'plus' : sub.tier].name}</p>
+                    <p className="text-[10px] font-black text-yellow-400">{tierInfo.name}</p>
                     <p className="text-[8px] text-gray-400 font-medium">Premium Member Perks Active</p>
                   </div>
                 </div>
@@ -177,9 +198,9 @@ export function UserProfileModal({ username, displayName, avatar, onClose, onSta
               )}
               <button
                 onClick={onClose}
-                className={`${onStartChat ? '' : 'flex-1 '}py-2.5 px-5 bg-[#20222a] border border-[#2c2e38] hover:bg-[#2c2e38] text-gray-300 hover:text-white text-xs font-black rounded-xl transition-all`}
+                className={`${onStartChat ? '' : 'flex-1 '}py-2.5 px-5 bg-[#20222a] border border-[#2c2e38] hover:bg-[#2c2e38] text-gray-300 hover:text-white text-xs font-black rounded-xl transition-all active:scale-95`}
               >
-                Close
+                Close Profile
               </button>
             </div>
           </div>
