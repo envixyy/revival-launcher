@@ -1,7 +1,6 @@
 /**
  * Revival Network — Platform-wide Announcements
- * These appear as banners in the launcher Dashboard.
- * In production, fetch these from your API. For now they are static.
+ * Real-time announcement management strictly restricted to "envixyy".
  */
 
 export type AnnouncementSeverity = 'info' | 'warning' | 'critical' | 'celebration';
@@ -18,31 +17,71 @@ export interface Announcement {
   urlLabel?: string;
 }
 
-export const PLATFORM_ANNOUNCEMENTS: Announcement[] = [
+const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
   {
     id: 'ann-001',
     severity: 'celebration',
-    title: '🎉 Revival Launcher v1.0 is LIVE!',
-    body: 'We officially launched today. Add friends, manage instances, and discover modpacks — all in one place.',
-    date: 'Today',
-    url: 'https://github.com',
-    urlLabel: 'See changelog',
-  },
-  {
-    id: 'ann-002',
-    severity: 'info',
-    title: 'Minecraft 1.21.4 + Fabric 0.16 supported',
-    body: 'Create a new instance and select 1.21.4 to get started with the latest version.',
+    title: 'Revival Network is LIVE!',
+    body: 'Welcome to Revival Launcher v0.2. Real friends system, custom profiles, and role management enabled.',
     date: 'Aug 25',
-  },
-  {
-    id: 'ann-003',
-    severity: 'warning',
-    title: 'Scheduled maintenance — Aug 28 at 2AM EST',
-    body: 'The Revival Network API will be briefly offline. Existing instances will still launch normally.',
-    date: 'Aug 26',
+    url: 'https://github.com/envixyy/revival-launcher',
+    urlLabel: 'View GitHub',
   },
 ];
+
+export function getAnnouncements(): Announcement[] {
+  try {
+    const saved = localStorage.getItem('revival_announcements');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return DEFAULT_ANNOUNCEMENTS;
+}
+
+export function saveAnnouncements(list: Announcement[]): void {
+  localStorage.setItem('revival_announcements', JSON.stringify(list));
+}
+
+export function isOwner(username?: string): boolean {
+  if (!username) return false;
+  return username.toLowerCase().trim() === 'envixyy';
+}
+
+export function addAnnouncement(
+  authorUsername: string,
+  ann: Omit<Announcement, 'id' | 'date'>
+): { success: boolean; message: string; announcement?: Announcement } {
+  if (!isOwner(authorUsername)) {
+    return { success: false, message: 'Only @envixyy can create platform announcements.' };
+  }
+
+  const list = getAnnouncements();
+  const newAnn: Announcement = {
+    ...ann,
+    id: `ann_${Date.now()}`,
+    date: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }),
+  };
+
+  const updated = [newAnn, ...list];
+  saveAnnouncements(updated);
+  return { success: true, message: 'Announcement published successfully!', announcement: newAnn };
+}
+
+export function deleteAnnouncement(
+  authorUsername: string,
+  id: string
+): { success: boolean; message: string } {
+  if (!isOwner(authorUsername)) {
+    return { success: false, message: 'Only @envixyy can delete announcements.' };
+  }
+
+  const list = getAnnouncements();
+  const updated = list.filter(a => a.id !== id);
+  saveAnnouncements(updated);
+  return { success: true, message: 'Announcement deleted.' };
+}
 
 export const SEVERITY_STYLES: Record<AnnouncementSeverity, { bar: string; bg: string; text: string; border: string }> = {
   celebration: {

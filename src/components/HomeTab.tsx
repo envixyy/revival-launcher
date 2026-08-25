@@ -10,7 +10,8 @@ import { safeInvoke, isElectron } from '../utils/tauri';
 import { CreateInstanceModal } from './CreateInstanceModal';
 import { InstanceSettingsModal } from './InstanceSettingsModal';
 import { ImportModal } from './ImportModal';
-import { PLATFORM_ANNOUNCEMENTS, SEVERITY_STYLES } from '../utils/announcements';
+import { SEVERITY_STYLES, getAnnouncements, addAnnouncement, deleteAnnouncement, Announcement, AnnouncementSeverity } from '../utils/announcements';
+import { canAssignRoles } from '../utils/userCatalog';
 
 interface Instance {
   name: string;
@@ -26,6 +27,7 @@ interface Instance {
 interface HomeTabProps {
   onSelectInstance?: (instance: Instance) => void;
   onLaunch?: (name: string) => void;
+  currentUser?: { username: string; displayName: string; avatar: string };
 }
 
 function LoaderIconComp({ loader }: { loader: string }) {
@@ -143,7 +145,7 @@ function InstanceMenu({ instance: _instance, onSettings, onDuplicate, onDelete, 
   );
 }
 
-export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch }: HomeTabProps) {
+export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, currentUser }: HomeTabProps) {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -155,7 +157,18 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch }: HomeT
   const [activeAnnouncementIdx, setActiveAnnouncementIdx] = useState(0);
   const consoleBottomRef = useRef<HTMLDivElement>(null);
 
-  const announcements = PLATFORM_ANNOUNCEMENTS;
+  // Dynamic announcements state
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => getAnnouncements());
+  const isOwner = canAssignRoles(currentUser?.username);
+
+  // Owner announcement manager state
+  const [showAnnManager, setShowAnnManager] = useState(false);
+  const [newAnnTitle, setNewAnnTitle] = useState('');
+  const [newAnnBody, setNewAnnBody] = useState('');
+  const [newAnnSeverity, setNewAnnSeverity] = useState<AnnouncementSeverity>('info');
+  const [newAnnUrl, setNewAnnUrl] = useState('');
+  const [newAnnUrlLabel, setNewAnnUrlLabel] = useState('');
+  const [annFeedback, setAnnFeedback] = useState('');
 
   const fetchInstances = async () => {
     setLoading(true);
@@ -269,7 +282,38 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch }: HomeT
     await safeInvoke('open_instance_folder', { name });
   };
 
-  const currentAnn = announcements[activeAnnouncementIdx] || announcements[0];
+  const handlePublishAnnouncement = () => {
+    if (!newAnnTitle.trim() || !newAnnBody.trim()) {
+      setAnnFeedback('Title and body are required.');
+      return;
+    }
+    const result = addAnnouncement(currentUser?.username || '', {
+      severity: newAnnSeverity,
+      title: newAnnTitle.trim(),
+      body: newAnnBody.trim(),
+      url: newAnnUrl.trim() || undefined,
+      urlLabel: newAnnUrlLabel.trim() || undefined,
+    });
+    if (result.success) {
+      setAnnouncements(getAnnouncements());
+      setActiveAnnouncementIdx(0);
+      setNewAnnTitle(''); setNewAnnBody(''); setNewAnnUrl(''); setNewAnnUrlLabel('');
+      setAnnFeedback('✓ Published!');
+    } else {
+      setAnnFeedback(result.message);
+    }
+    setTimeout(() => setAnnFeedback(''), 3000);
+  };
+
+  const handleDeleteAnnouncement = (id: string) => {
+    const result = deleteAnnouncement(currentUser?.username || '', id);
+    if (result.success) {
+      setAnnouncements(getAnnouncements());
+      setActiveAnnouncementIdx(0);
+    }
+  };
+
+  const currentAnn = announcements[activeAnnouncementIdx] ?? announcements[0];
   const annStyle = SEVERITY_STYLES[currentAnn.severity];
 
   return (
@@ -296,41 +340,147 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch }: HomeT
       )}
 
       {/* PLATFORM-WIDE ANNOUNCEMENTS BANNER */}
-      <div className={`relative rounded-2xl border ${annStyle.border} ${annStyle.bg} p-3.5 flex items-center justify-between gap-3 shadow-lg overflow-hidden`}>
-        <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${annStyle.bar}`} />
-        
-        <div className="flex items-center gap-3 min-w-0 pl-1.5">
-          <div className="w-8 h-8 rounded-xl bg-[#16171d] border border-[#2c2e38] flex items-center justify-center flex-shrink-0 text-sm shadow-sm">
-            <Megaphone size={15} className={annStyle.text} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.2 rounded bg-black/40 text-gray-300 border border-white/5">
-                Announcement
-              </span>
-              <h4 className="font-extrabold text-xs text-white truncate">{currentAnn.title}</h4>
-              <span className="text-[9px] text-gray-500 font-bold hidden sm:inline">({currentAnn.date})</span>
+      {currentAnn && (
+        <div className={`relative rounded-2xl border ${annStyle.border} ${annStyle.bg} p-3.5 flex items-center justify-between gap-3 shadow-lg overflow-hidden`}>
+          <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${annStyle.bar}`} />
+
+          <div className="flex items-center gap-3 min-w-0 pl-1.5">
+            <div className="w-8 h-8 rounded-xl bg-[#16171d] border border-[#2c2e38] flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Megaphone size={15} className={annStyle.text} />
             </div>
-            <p className="text-[11px] text-gray-300 truncate mt-0.5 font-medium">
-              {currentAnn.body}
-            </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.2 rounded bg-black/40 text-gray-300 border border-white/5">
+                  Announcement
+                </span>
+                <h4 className="font-extrabold text-xs text-white truncate">{currentAnn.title}</h4>
+                <span className="text-[9px] text-gray-500 font-bold hidden sm:inline">({currentAnn.date})</span>
+              </div>
+              <p className="text-[11px] text-gray-300 truncate mt-0.5 font-medium">{currentAnn.body}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Pagination dots */}
+            {announcements.length > 1 && (
+              <div className="flex items-center gap-1 bg-black/30 p-1 rounded-xl border border-white/5">
+                {announcements.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveAnnouncementIdx(i)}
+                    className={`h-2 rounded-full transition-all ${i === activeAnnouncementIdx ? `${annStyle.bar} w-4` : 'bg-gray-600 w-2'}`}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Owner controls */}
+            {isOwner && (
+              <>
+                <button
+                  onClick={() => handleDeleteAnnouncement(currentAnn.id)}
+                  title="Delete this announcement"
+                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                >
+                  <Trash2 size={12} />
+                </button>
+                <button
+                  onClick={() => setShowAnnManager(v => !v)}
+                  title="Manage announcements"
+                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-[9px] font-black ${showAnnManager ? 'bg-amber-400/20 text-amber-300' : 'bg-black/30 hover:bg-amber-400/10 text-amber-400'}`}
+                >
+                  <Megaphone size={11} /> Post
+                </button>
+              </>
+            )}
           </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {announcements.length > 1 && (
-            <div className="flex items-center gap-1 bg-black/30 p-1 rounded-xl border border-white/5">
-              {announcements.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveAnnouncementIdx(i)}
-                  className={`w-2 h-2 rounded-full transition-all ${i === activeAnnouncementIdx ? 'bg-[#facc15] w-4' : 'bg-gray-600'}`}
-                />
+      {/* OWNER ANNOUNCEMENT MANAGER (only visible to envixyy) */}
+      {isOwner && showAnnManager && (
+        <div className="bg-[#15161c] border border-amber-400/30 rounded-2xl p-4 space-y-3 animate-fade-in shadow-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Megaphone size={14} className="text-amber-400" />
+              <span className="text-xs font-black text-white">Post Platform Announcement</span>
+              <span className="text-[9px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.2 rounded border border-amber-400/20">OWNER ONLY</span>
+            </div>
+            <button onClick={() => setShowAnnManager(false)} className="text-gray-500 hover:text-white transition-colors">
+              <X size={14} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              value={newAnnTitle}
+              onChange={e => setNewAnnTitle(e.target.value)}
+              placeholder="Announcement title..."
+              className="col-span-2 bg-[#0d0e12] border border-[#2c2e38] focus:border-amber-400 rounded-xl px-3 py-1.5 text-xs text-white outline-none font-semibold"
+            />
+            <textarea
+              value={newAnnBody}
+              onChange={e => setNewAnnBody(e.target.value)}
+              placeholder="Announcement body..."
+              rows={2}
+              className="col-span-2 bg-[#0d0e12] border border-[#2c2e38] focus:border-amber-400 rounded-xl px-3 py-1.5 text-xs text-white outline-none font-medium resize-none"
+            />
+            <select
+              value={newAnnSeverity}
+              onChange={e => setNewAnnSeverity(e.target.value as AnnouncementSeverity)}
+              className="bg-[#0d0e12] border border-[#2c2e38] text-white rounded-xl px-2 py-1.5 text-xs font-bold outline-none cursor-pointer"
+            >
+              <option value="celebration">🎉 Celebration</option>
+              <option value="info">ℹ️ Info</option>
+              <option value="warning">⚠️ Warning</option>
+              <option value="critical">🚨 Critical</option>
+            </select>
+            <input
+              type="text"
+              value={newAnnUrl}
+              onChange={e => setNewAnnUrl(e.target.value)}
+              placeholder="Link URL (optional)"
+              className="bg-[#0d0e12] border border-[#2c2e38] focus:border-amber-400 rounded-xl px-3 py-1.5 text-xs text-white outline-none font-mono"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePublishAnnouncement}
+              className="flex-1 py-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-yellow-500/10"
+            >
+              <Megaphone size={13} /> Publish Announcement
+            </button>
+          </div>
+
+          {/* List all announcements with delete */}
+          {announcements.length > 0 && (
+            <div className="space-y-1 border-t border-[#2c2e38] pt-2">
+              <p className="text-[9px] font-black uppercase text-gray-500 tracking-wider">All Announcements ({announcements.length})</p>
+              {announcements.map(ann => (
+                <div key={ann.id} className="flex items-center justify-between gap-2 bg-[#0d0e12] border border-[#2c2e38] rounded-lg px-2.5 py-1.5">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-white truncate">{ann.title}</p>
+                    <p className="text-[8.5px] text-gray-500 font-medium">{ann.date} · {ann.severity}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteAnnouncement(ann.id)}
+                    className="p-1 rounded hover:bg-red-500/20 text-red-400 transition-colors flex-shrink-0"
+                    title="Delete"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
               ))}
             </div>
           )}
+
+          {annFeedback && (
+            <p className="text-[10px] font-bold text-center animate-fade-in text-amber-300">{annFeedback}</p>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Header with Title & Action Buttons */}
       <div className="flex items-center justify-between">

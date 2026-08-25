@@ -27,88 +27,28 @@ export interface FriendRequest {
   status: 'pending' | 'accepted' | 'declined';
 }
 
-const DEFAULT_NETWORK_CATALOG: CatalogUser[] = [
-  {
-    username: 'envixyy',
-    displayName: 'envixyy',
-    avatar: 'crown',
-    status: 'Building the future of Minecraft Launchers',
-    activity: 'Revival Network Core',
-    isOnline: true,
-    joinedAt: Date.now() - 86400000 * 30,
-    roles: ['owner', 'developer', 'admin', 'plus'],
-    bannerUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
-  },
-  {
-    username: 'zemmbyy',
-    displayName: 'zemmbyy',
-    avatar: 'zap',
-    status: 'Hypixel Bedwars & Cobblemon grinder',
-    activity: 'Playing Cobblemon 1.20.1',
-    isOnline: true,
-    joinedAt: Date.now() - 86400000 * 14,
-    roles: ['early_access'],
-  },
-  {
-    username: 'vix',
-    displayName: 'vix',
-    avatar: 'terminal',
-    status: 'Dev mode active',
-    activity: 'Coding Modpack Importer',
-    isOnline: true,
-    joinedAt: Date.now() - 86400000 * 25,
-    roles: ['developer'],
-  },
-  {
-    username: 'alex_miner',
-    displayName: 'Alex',
-    avatar: 'swords',
-    status: 'Survival SMP with friends',
-    activity: 'Playing Origin Realms',
-    isOnline: true,
-    joinedAt: Date.now() - 86400000 * 10,
-    roles: ['supporter'],
-  },
-  {
-    username: 'shadow_steve',
-    displayName: 'ShadowSteve',
-    avatar: 'flame',
-    status: 'Speedrunning 1.21.4',
-    activity: 'In Main Menu',
-    isOnline: false,
-    joinedAt: Date.now() - 86400000 * 8,
-    roles: ['early_access'],
-  },
-  {
-    username: 'craftking',
-    displayName: 'CraftKing99',
-    avatar: 'gamepad',
-    status: 'Fabulously Optimized FPS testing',
-    activity: 'Playing Fabulously Optimized',
-    isOnline: true,
-    joinedAt: Date.now() - 86400000 * 5,
-    roles: ['early_access'],
-  },
-  {
-    username: 'pixel_hero',
-    displayName: 'PixelHero',
-    avatar: 'rocket',
-    status: 'Custom shaders & textures',
-    activity: 'In Lobby',
-    isOnline: false,
-    joinedAt: Date.now() - 86400000 * 3,
-    roles: ['early_access'],
-  },
-];
+/**
+ * Catalog starts completely empty.
+ * Real users are added only when they actually log into the launcher via registerUserInCatalog().
+ */
+const DEFAULT_NETWORK_CATALOG: CatalogUser[] = [];
+
+// Version key — bump this whenever the catalog schema/defaults change to flush stale data
+const CATALOG_VERSION = '2';
 
 export function getNetworkCatalog(): CatalogUser[] {
   try {
+    // If the stored version doesn't match, wipe the old catalog (removes fake users)
+    const storedVersion = localStorage.getItem('revival_catalog_version');
+    if (storedVersion !== CATALOG_VERSION) {
+      localStorage.removeItem('revival_user_catalog');
+      localStorage.setItem('revival_catalog_version', CATALOG_VERSION);
+    }
+
     const saved = localStorage.getItem('revival_user_catalog');
     if (saved) {
       const parsed: CatalogUser[] = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
 

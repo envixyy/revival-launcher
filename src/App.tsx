@@ -149,6 +149,7 @@ function App() {
                 navigateTo('instance-view');
               }}
               onLaunch={handleLaunch}
+              currentUser={currentUser ?? undefined}
             />
           )}
           {activeTab === 'library' && (
