@@ -42,7 +42,7 @@ export function TitleBar({ currentPage, canGoBack, onBack, instancesRunning, upd
         <img src={logoImg} alt="Revival" className="w-4 h-4 object-contain opacity-90" />
         <span className="text-[12px] font-extrabold text-white tracking-tight">revival</span>
         <span className="text-[12px] font-extrabold text-[#facc15] tracking-tight">launcher</span>
-        <span className="text-[9px] font-black text-gray-600 bg-[#1a1b22] border border-[#2c2e38] px-1.5 py-0.5 rounded-md tracking-widest uppercase">v0.3.0</span>
+        <span className="text-[9px] font-black text-gray-600 bg-[#1a1b22] border border-[#2c2e38] px-1.5 py-0.5 rounded-md tracking-widest uppercase">v0.3.5</span>
       </div>
 
       {/* Nav Arrows (< >) */}

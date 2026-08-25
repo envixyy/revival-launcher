@@ -7,7 +7,7 @@
 
 import { safeInvoke } from './tauri';
 
-export const CURRENT_VERSION = '0.3.0';
+export const CURRENT_VERSION = '0.3.5';
 const GITHUB_REPO = 'envixyy/revival-launcher';
 const SKIPPED_VERSION_KEY = 'revival_skipped_version';
 const LAST_CHECK_KEY = 'revival_last_update_check';

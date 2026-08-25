@@ -309,7 +309,7 @@ export function SettingsTab({ config, onSaveConfig }: SettingsTabProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <div className="bg-[#0d0e12] border border-[#2c2e38] rounded-xl p-3.5">
               <p className="text-[10px] font-black uppercase text-gray-500">Current Version</p>
-              <p className="text-sm font-black text-white mt-0.5">v0.3.0</p>
+              <p className="text-sm font-black text-white mt-0.5">v0.3.5</p>
               <span className="text-[9px] text-[#facc15] font-bold">Pre-Release Milestone</span>
             </div>
             <div className="bg-[#0d0e12] border border-[#2c2e38] rounded-xl p-3.5">

@@ -381,7 +381,7 @@ export function HomeTab({ onSelectInstance: _onSelectInstance, onLaunch, current
               onClick={() => setShowReleaseNotes(true)}
               className="px-2.5 py-1 rounded-xl bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-[10px] shadow-sm flex items-center gap-1 transition-all active:scale-95"
             >
-              <Sparkles size={11} /> v0.3.0 Patch Notes
+              <Sparkles size={11} /> v0.3.5 Patch Notes
             </button>
 
             {/* Owner controls */}

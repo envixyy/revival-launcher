@@ -21,8 +21,8 @@ const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
   {
     id: 'ann-002',
     severity: 'celebration',
-    title: '🚀 Revival Launcher v0.3.0 Milestone Pre-Release',
-    body: 'Combined all v0.2.x updates! Added Suggestions Roadmap Forum, Friends Hub, Discord Profile Cards, Custom Instance Icons, Modrinth metadata caching, and strict PLUS+ perk locks.',
+    title: '🚀 Revival Launcher v0.3.5 Official Release',
+    body: 'Integrated Prism-style automated update checker, refined Modrinth manager, updated TitleBar layout, and full performance stability fixes.',
     date: 'Aug 25',
     url: 'https://github.com/envixyy/revival-launcher',
     urlLabel: 'Patch Notes',
