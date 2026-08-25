@@ -9,6 +9,10 @@ try {
   app.setPath('userData', path.join(app.getPath('appData'), 'RevivalLauncher_AppProfile'));
 } catch (e) {}
 
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.revival.launcher');
+}
+
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-gpu-compositing');
 app.commandLine.appendSwitch('no-sandbox');
@@ -32,8 +36,23 @@ let logWindow = null;
 // Track running game processes: instanceName -> { process, name }
 const runningProcesses = new Map();
 
+function getAppIcon() {
+  const possiblePaths = [
+    path.join(__dirname, 'icon.png'),
+    path.join(__dirname, '../build/icon.png'),
+    path.join(__dirname, '../src/assets/logo.png'),
+    path.join(__dirname, '../dist/assets/logo-hInAjojv.png'),
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
+
 function createWindow() {
   Menu.setApplicationMenu(null);
+  const iconPath = getAppIcon();
+
   mainWindow = new BrowserWindow({
     width: 1060,
     height: 700,
@@ -45,12 +64,17 @@ function createWindow() {
     show: true,
     alwaysOnTop: true,
     autoHideMenuBar: true,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  if (iconPath) {
+    mainWindow.setIcon(iconPath);
+  }
 
   mainWindow.show();
   mainWindow.focus();
