@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import {
-  MessageSquare, ThumbsUp, Plus, Crown, Trash2, Check, Filter, X, Send, Sparkles, AlertCircle
+  MessageSquare, ThumbsUp, Plus, Crown, Trash2, Check, Filter, X, Send, Sparkles, AlertCircle,
+  Map, Zap, Rocket, Clock, CheckCircle2
 } from 'lucide-react';
 import {
   Suggestion, SuggestionStatus, STATUS_CONFIG,
   getSuggestions, createSuggestion, toggleUpvote,
-  updateSuggestionStatusByOwner, deleteSuggestionByOwner, addSuggestionComment
+  updateSuggestionStatusByOwner, deleteSuggestionByOwner, addSuggestionComment,
+  RoadmapPost, RoadmapPhase, PHASE_CONFIG,
+  getRoadmap, addRoadmapPost, deleteRoadmapPost
 } from '../utils/suggestions';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
@@ -19,10 +22,20 @@ interface SuggestionsTabProps {
 }
 
 export function SuggestionsTab({ user, onStartChat }: SuggestionsTabProps) {
+  const [mainTab, setMainTab] = useState<'suggestions' | 'roadmap'>('suggestions');
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [filterStatus, setFilterStatus] = useState<SuggestionStatus | 'all'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Roadmap state
+  const [roadmap, setRoadmap] = useState<RoadmapPost[]>([]);
+  const [showRoadmapForm, setShowRoadmapForm] = useState(false);
+  const [roadmapPhase, setRoadmapPhase] = useState<RoadmapPhase>('now');
+  const [roadmapTitle, setRoadmapTitle] = useState('');
+  const [roadmapBody, setRoadmapBody] = useState('');
+  const [roadmapTag, setRoadmapTag] = useState('');
+  const [roadmapFeedback, setRoadmapFeedback] = useState('');
 
   // New Suggestion Form
   const [newTitle, setNewTitle] = useState('');
@@ -45,6 +58,7 @@ export function SuggestionsTab({ user, onStartChat }: SuggestionsTabProps) {
 
   const refreshList = () => {
     setSuggestions(getSuggestions());
+    setRoadmap(getRoadmap());
   };
 
   useEffect(() => {
@@ -112,11 +126,37 @@ export function SuggestionsTab({ user, onStartChat }: SuggestionsTabProps) {
     }
   };
 
+  const handleAddRoadmapPost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roadmapTitle.trim() || !roadmapBody.trim()) return;
+    const updated = addRoadmapPost(user.username, roadmapPhase, roadmapTitle, roadmapBody, roadmapTag);
+    if (updated) {
+      setRoadmap(updated);
+      setRoadmapTitle(''); setRoadmapBody(''); setRoadmapTag('');
+      setShowRoadmapForm(false);
+      setRoadmapFeedback('✓ Roadmap post published!');
+      setTimeout(() => setRoadmapFeedback(''), 2500);
+    }
+  };
+
+  const handleDeleteRoadmapPost = (id: string) => {
+    if (!confirm('Delete this roadmap entry?')) return;
+    const updated = deleteRoadmapPost(user.username, id);
+    if (updated) setRoadmap(updated);
+  };
+
   const filtered = suggestions.filter(s => {
     if (filterStatus !== 'all' && s.status !== filterStatus) return false;
     if (filterCategory !== 'all' && s.category !== filterCategory) return false;
     return true;
   });
+
+  const phaseIcons: Record<RoadmapPhase, React.ReactNode> = {
+    now:   <Zap size={14} className="text-[#facc15]" />,
+    next:  <Rocket size={14} className="text-blue-400" />,
+    later: <Clock size={14} className="text-purple-400" />,
+    done:  <CheckCircle2 size={14} className="text-green-400" />,
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden select-none animate-fade-in max-w-6xl mx-auto w-full">
@@ -126,96 +166,131 @@ export function SuggestionsTab({ user, onStartChat }: SuggestionsTabProps) {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-white flex items-center gap-2">
               <Sparkles size={24} className="text-[#facc15]" />
-              Suggestions & Feature Roadmap
+              Suggestions &amp; Feature Roadmap
             </h1>
             <span className="text-[10px] font-black uppercase bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/30 px-2 py-0.5 rounded-lg">
               Community Hub
             </span>
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            Submit ideas, vote on upcoming launcher updates, and track feature status in real time.
+            Submit ideas, vote on upcoming updates, and follow the official Revival roadmap.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2.5 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-xs rounded-xl shadow-lg shadow-yellow-500/20 transition-all flex items-center gap-2 active:scale-95"
-        >
-          <Plus size={16} />
-          Submit Suggestion
-        </button>
+        {mainTab === 'suggestions' ? (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2.5 bg-[#facc15] hover:bg-yellow-300 text-black font-extrabold text-xs rounded-xl shadow-lg shadow-yellow-500/20 transition-all flex items-center gap-2 active:scale-95"
+          >
+            <Plus size={16} /> Submit Suggestion
+          </button>
+        ) : isOwner ? (
+          <button
+            onClick={() => setShowRoadmapForm(v => !v)}
+            className={`px-4 py-2.5 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 active:scale-95 ${showRoadmapForm ? 'bg-[#2c2e38] text-white' : 'bg-[#facc15] hover:bg-yellow-300 text-black shadow-yellow-500/20'}`}
+          >
+            {showRoadmapForm ? <><X size={14} /> Cancel</> : <><Plus size={14} /> Add Entry</>}
+          </button>
+        ) : null}
       </div>
 
-      {/* Filter Bar */}
-      <div className="py-4 flex flex-wrap items-center justify-between gap-3">
-        {/* Status Filters */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Main Tab Switcher */}
+      <div className="flex gap-1 py-3 border-b border-[#1e2028]">
+        {(['suggestions', 'roadmap'] as const).map(tab => (
           <button
-            onClick={() => setFilterStatus('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
-              filterStatus === 'all'
-                ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/10'
-                : 'bg-[#181920] text-gray-400 hover:text-white border border-[#2c2e38]'
+            key={tab}
+            onClick={() => setMainTab(tab)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              mainTab === tab
+                ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/15'
+                : 'text-gray-400 hover:text-white hover:bg-[#1c1d24]'
             }`}
           >
-            All Ideas ({suggestions.length})
+            {tab === 'suggestions' ? <MessageSquare size={13} /> : <Map size={13} />}
+            {tab === 'suggestions' ? 'Suggestions' : 'Roadmap'}
+            {tab === 'suggestions' && (
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${mainTab === tab ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-400'}`}>
+                {suggestions.length}
+              </span>
+            )}
+            {tab === 'roadmap' && isOwner && (
+              <span className="text-[8px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.2 rounded-full">OWNER</span>
+            )}
           </button>
-
-          {(['planned', 'added', 'review', 'declined'] as SuggestionStatus[]).map(st => {
-            const cfg = STATUS_CONFIG[st];
-            const count = suggestions.filter(s => s.status === st).length;
-            const isActive = filterStatus === st;
-            return (
-              <button
-                key={st}
-                onClick={() => setFilterStatus(st)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all border ${
-                  isActive
-                    ? 'bg-[#262833] text-white border-[#facc15]'
-                    : 'bg-[#14151b] text-gray-400 hover:text-white border-[#2c2e38]'
-                }`}
-              >
-                <span>{cfg.icon}</span>
-                <span>{cfg.label}</span>
-                <span className="text-[10px] opacity-70 bg-black/40 px-1.5 py-0.2 rounded">{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Category Filters */}
-        <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
-          <Filter size={13} />
-          <select
-            value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            className="bg-[#15161c] border border-[#2c2e38] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-[#facc15]"
-          >
-            <option value="all">All Categories</option>
-            <option value="Feature">Features</option>
-            <option value="Modpack">Modpacks</option>
-            <option value="UI/UX">UI / UX</option>
-            <option value="Bug">Bugs</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
+        ))}
       </div>
 
-      {/* Suggestion Posts List */}
-      <div className="flex-1 overflow-y-auto no-scrollbar space-y-3 pr-1">
-        {filtered.length === 0 ? (
-          <div className="text-center py-16 bg-[#14151b]/40 rounded-3xl border border-dashed border-[#2c2e38] p-8 space-y-2">
-            <MessageSquare size={32} className="mx-auto text-gray-600" />
-            <p className="text-sm text-gray-400 font-bold">No suggestions found in this category.</p>
+      {/* Filter Bar — Suggestions only */}
+      {mainTab === 'suggestions' && (
+        <div className="py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
-              onClick={() => setShowCreateModal(true)}
-              className="text-xs text-[#facc15] font-black hover:underline"
+              onClick={() => setFilterStatus('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                filterStatus === 'all'
+                  ? 'bg-[#facc15] text-black shadow-md shadow-yellow-500/10'
+                  : 'bg-[#181920] text-gray-400 hover:text-white border border-[#2c2e38]'
+              }`}
             >
-              + Create the first suggestion
+              All Ideas ({suggestions.length})
             </button>
+
+            {(['planned', 'added', 'review', 'declined'] as SuggestionStatus[]).map(st => {
+              const cfg = STATUS_CONFIG[st];
+              const count = suggestions.filter(s => s.status === st).length;
+              const isActive = filterStatus === st;
+              return (
+                <button
+                  key={st}
+                  onClick={() => setFilterStatus(st)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all border ${
+                    isActive
+                      ? 'bg-[#262833] text-white border-[#facc15]'
+                      : 'bg-[#14151b] text-gray-400 hover:text-white border-[#2c2e38]'
+                  }`}
+                >
+                  <span>{cfg.icon}</span>
+                  <span>{cfg.label}</span>
+                  <span className="text-[10px] opacity-70 bg-black/40 px-1.5 py-0.2 rounded">{count}</span>
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          filtered.map(sug => {
+
+          <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
+            <Filter size={13} />
+            <select
+              value={filterCategory}
+              onChange={e => setFilterCategory(e.target.value)}
+              className="bg-[#15161c] border border-[#2c2e38] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-[#facc15]"
+            >
+              <option value="all">All Categories</option>
+              <option value="Feature">Features</option>
+              <option value="Modpack">Modpacks</option>
+              <option value="UI/UX">UI / UX</option>
+              <option value="Bug">Bugs</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Suggestion Posts List */}
+      {mainTab === 'suggestions' && (
+        <div className="flex-1 overflow-y-auto no-scrollbar space-y-3 pr-1">
+          {filtered.length === 0 ? (
+            <div className="text-center py-16 bg-[#14151b]/40 rounded-3xl border border-dashed border-[#2c2e38] p-8 space-y-2">
+              <MessageSquare size={32} className="mx-auto text-gray-600" />
+              <p className="text-sm text-gray-400 font-bold">No suggestions found in this category.</p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="text-xs text-[#facc15] font-black hover:underline"
+              >
+                + Create the first suggestion
+              </button>
+            </div>
+          ) : (
+            filtered.map(sug => {
             const cfg = STATUS_CONFIG[sug.status];
             const hasUpvoted = sug.upvotes.includes(user.username);
             const authorBadges = getBadgesForUser(sug.author);
@@ -332,8 +407,144 @@ export function SuggestionsTab({ user, onStartChat }: SuggestionsTabProps) {
               </div>
             );
           })
-        )}
-      </div>
+          )}
+        </div>
+      )}
+      {/* ── ROADMAP TAB ─────────────────────────────────────────── */}
+      {mainTab === 'roadmap' && (
+        <div className="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-1 pt-3">
+
+          {/* Owner Post Form */}
+          {isOwner && showRoadmapForm && (
+            <form onSubmit={handleAddRoadmapPost} className="bg-[#15161c] border border-amber-400/40 rounded-2xl p-5 space-y-3 animate-scale-up shadow-xl">
+              <div className="flex items-center gap-2 pb-1 border-b border-[#2c2e38]">
+                <Crown size={15} className="text-amber-400" />
+                <span className="text-sm font-black text-white">Post Roadmap Entry</span>
+                <span className="text-[9px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20 ml-auto">OWNER ONLY</span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {((['now', 'next', 'later', 'done'] as RoadmapPhase[])).map(phase => {
+                  const cfg = PHASE_CONFIG[phase];
+                  return (
+                    <button
+                      key={phase}
+                      type="button"
+                      onClick={() => setRoadmapPhase(phase)}
+                      className={`flex items-center justify-center gap-1 py-1.5 rounded-xl text-[10px] font-black border transition-all ${
+                        roadmapPhase === phase
+                          ? `${cfg.bg} ${cfg.border} ${cfg.color}`
+                          : 'bg-[#0d0e12] border-[#2c2e38] text-gray-500 hover:border-[#3c3e4a]'
+                      }`}
+                    >
+                      <span>{cfg.icon}</span> {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <input
+                type="text"
+                value={roadmapTitle}
+                onChange={e => setRoadmapTitle(e.target.value)}
+                placeholder="Entry title..."
+                className="w-full bg-[#0d0e12] border border-[#2c2e38] focus:border-amber-400 rounded-xl px-3 py-2 text-sm text-white outline-none font-semibold"
+              />
+              <textarea
+                value={roadmapBody}
+                onChange={e => setRoadmapBody(e.target.value)}
+                placeholder="Description / details..."
+                rows={2}
+                className="w-full bg-[#0d0e12] border border-[#2c2e38] focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white outline-none font-medium resize-none"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={roadmapTag}
+                  onChange={e => setRoadmapTag(e.target.value)}
+                  placeholder="Tag (e.g. v0.3.1, PLUS+)"
+                  className="flex-1 bg-[#0d0e12] border border-[#2c2e38] focus:border-amber-400 rounded-xl px-3 py-2 text-xs text-white outline-none font-mono"
+                />
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-black text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-lg shadow-yellow-500/15 active:scale-95"
+                >
+                  <Check size={13} /> Publish
+                </button>
+              </div>
+              {roadmapFeedback && (
+                <p className="text-xs text-green-400 font-bold animate-fade-in">{roadmapFeedback}</p>
+              )}
+            </form>
+          )}
+
+          {/* Roadmap Timeline — grouped by phase */}
+          {(['now', 'next', 'later', 'done'] as RoadmapPhase[]).map(phase => {
+            const posts = roadmap.filter(p => p.phase === phase);
+            const cfg = PHASE_CONFIG[phase];
+            return (
+              <div key={phase}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${cfg.bg} ${cfg.border}`}>
+                    {phaseIcons[phase]}
+                    <span className={`text-xs font-black uppercase tracking-wider ${cfg.color}`}>{cfg.label}</span>
+                    <span className="text-[9px] font-black text-gray-500 bg-black/30 px-1.5 py-0.2 rounded-full">{posts.length}</span>
+                  </div>
+                  <div className="flex-1 h-px bg-gradient-to-r from-[#2c2e38] to-transparent" />
+                </div>
+
+                {posts.length === 0 ? (
+                  <div className="text-center py-4 text-xs text-gray-600 font-medium italic">Nothing here yet.</div>
+                ) : (
+                  <div className="space-y-2.5 mb-4">
+                    {posts.map((post, idx) => (
+                      <div
+                        key={post.id}
+                        className={`rounded-2xl border p-4 flex items-start gap-3 animate-fade-in transition-all hover:shadow-md ${cfg.bg} ${cfg.border}`}
+                        style={{ animationDelay: `${idx * 50}ms` }}
+                      >
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center border ${cfg.border} bg-black/30 mt-0.5`}>
+                          {phaseIcons[phase]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <h4 className="font-black text-sm text-white">{post.title}</h4>
+                            {post.tag && (
+                              <span className="text-[9px] font-black bg-black/40 border border-[#2c2e38] text-gray-300 px-1.5 py-0.5 rounded-full">
+                                {post.tag}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 font-medium leading-relaxed">{post.body}</p>
+                          <p className="text-[9px] text-gray-600 mt-1.5 font-medium">
+                            Posted by <span className="text-amber-400 font-black">@envixyy</span> · {new Date(post.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                        {isOwner && (
+                          <button
+                            onClick={() => handleDeleteRoadmapPost(post.id)}
+                            className="flex-shrink-0 p-1.5 rounded-lg hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all active:scale-90"
+                            title="Delete entry"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {!isOwner && (
+            <div className="text-center py-3 text-[10px] text-gray-600 font-medium flex items-center justify-center gap-1.5 border-t border-[#1e2028] mt-2">
+              <Crown size={11} className="text-amber-500/60" />
+              Roadmap managed by <span className="text-amber-400 font-black ml-1">@envixyy</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CREATE SUGGESTION MODAL */}
       {showCreateModal && (

@@ -248,3 +248,126 @@ export function addSuggestionComment(
   saveSuggestions(updated);
   return updated;
 }
+
+// ─── Roadmap System (Owner-Only Posts) ───────────────────────────────────────
+
+export type RoadmapPhase = 'now' | 'next' | 'later' | 'done';
+
+export interface RoadmapPost {
+  id: string;
+  phase: RoadmapPhase;
+  title: string;
+  body: string;
+  tag?: string; // e.g. "v0.3.1", "PLUS+", "Multiplayer"
+  createdAt: number;
+  updatedAt: number;
+}
+
+const ROADMAP_KEY = 'revival_roadmap';
+
+export const PHASE_CONFIG: Record<RoadmapPhase, { label: string; icon: string; color: string; border: string; bg: string }> = {
+  now:   { label: 'In Progress',    icon: '⚡', color: 'text-[#facc15]',  border: 'border-[#facc15]/40',  bg: 'bg-[#facc15]/5' },
+  next:  { label: 'Coming Soon',    icon: '🚀', color: 'text-blue-400',   border: 'border-blue-500/30',   bg: 'bg-blue-500/5' },
+  later: { label: 'Planned',        icon: '📋', color: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/5' },
+  done:  { label: 'Shipped',        icon: '✅', color: 'text-green-400',  border: 'border-green-500/30',  bg: 'bg-green-500/5' },
+};
+
+const DEFAULT_ROADMAP: RoadmapPost[] = [
+  {
+    id: 'road-1',
+    phase: 'now',
+    title: 'Social Hub & Friends System',
+    body: 'Real-time friend list, direct messages, user profiles, and community suggestions forum — all shipping in v0.3.0.',
+    tag: 'v0.3.0',
+    createdAt: Date.now() - 86400000,
+    updatedAt: Date.now() - 86400000,
+  },
+  {
+    id: 'road-2',
+    phase: 'next',
+    title: 'PLUS+ Custom Profile Banners & Animated Avatars',
+    body: 'PLUS+ subscribers will be able to upload GIF banners, custom PFPs, and unlock animated profile effects.',
+    tag: 'PLUS+',
+    createdAt: Date.now() - 43200000,
+    updatedAt: Date.now() - 43200000,
+  },
+  {
+    id: 'road-3',
+    phase: 'later',
+    title: 'Revival Cloud Sync & Cross-Device Instance Backup',
+    body: 'Sync your instances, mods, and settings across multiple computers via the Revival Cloud service.',
+    tag: 'Cloud',
+    createdAt: Date.now() - 21600000,
+    updatedAt: Date.now() - 21600000,
+  },
+  {
+    id: 'road-4',
+    phase: 'done',
+    title: 'Modrinth Integration & Mod Search',
+    body: 'Full Modrinth mod browser with search, version filtering, and bulk icon metadata caching.',
+    tag: 'v0.2.4',
+    createdAt: Date.now() - 172800000,
+    updatedAt: Date.now() - 172800000,
+  },
+];
+
+export function getRoadmap(): RoadmapPost[] {
+  try {
+    const raw = localStorage.getItem(ROADMAP_KEY);
+    if (!raw) {
+      localStorage.setItem(ROADMAP_KEY, JSON.stringify(DEFAULT_ROADMAP));
+      return DEFAULT_ROADMAP;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return DEFAULT_ROADMAP;
+  }
+}
+
+export function saveRoadmap(posts: RoadmapPost[]): void {
+  localStorage.setItem(ROADMAP_KEY, JSON.stringify(posts));
+}
+
+export function addRoadmapPost(
+  ownerUsername: string,
+  phase: RoadmapPhase,
+  title: string,
+  body: string,
+  tag?: string
+): RoadmapPost[] | null {
+  if (ownerUsername.toLowerCase() !== 'envixyy') return null;
+  const list = getRoadmap();
+  const post: RoadmapPost = {
+    id: `road-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    phase,
+    title: title.trim(),
+    body: body.trim(),
+    tag: tag?.trim() || undefined,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  const updated = [post, ...list];
+  saveRoadmap(updated);
+  return updated;
+}
+
+export function deleteRoadmapPost(ownerUsername: string, postId: string): RoadmapPost[] | null {
+  if (ownerUsername.toLowerCase() !== 'envixyy') return null;
+  const updated = getRoadmap().filter(p => p.id !== postId);
+  saveRoadmap(updated);
+  return updated;
+}
+
+export function editRoadmapPost(
+  ownerUsername: string,
+  postId: string,
+  updates: Partial<Pick<RoadmapPost, 'phase' | 'title' | 'body' | 'tag'>>
+): RoadmapPost[] | null {
+  if (ownerUsername.toLowerCase() !== 'envixyy') return null;
+  const updated = getRoadmap().map(p =>
+    p.id === postId ? { ...p, ...updates, updatedAt: Date.now() } : p
+  );
+  saveRoadmap(updated);
+  return updated;
+}
+
