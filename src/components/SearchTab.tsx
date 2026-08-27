@@ -123,15 +123,33 @@ export function SearchTab({ activeInstance, onSelectInstance }: SearchTabProps) 
       let targetVer = versionId ? versionsList.find(v => v.id === versionId) : null;
       if (!targetVer) {
         if (activeInstance && !isPack) {
-          // Find first compatible with active instance
+          // Find first compatible with active instance, with smart fallbacks
           targetVer = versionsList.find(v => {
             const mcMatch = v.game_versions.includes(activeInstance.mc_version);
             const loaderName = activeInstance.loader.toLowerCase();
             const loaderMatch = loaderName === 'vanilla' ? true : v.loaders.map(x => x.toLowerCase()).includes(loaderName);
             return mcMatch && loaderMatch;
           });
+
+          if (!targetVer) {
+            const parts = activeInstance.mc_version.split('.');
+            const majorMinor = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : activeInstance.mc_version;
+            targetVer = versionsList.find(v => {
+              const mcMatch = v.game_versions.some(gv => gv.startsWith(majorMinor));
+              const loaderName = activeInstance.loader.toLowerCase();
+              const loaderMatch = loaderName === 'vanilla' ? true : v.loaders.map(x => x.toLowerCase()).includes(loaderName);
+              return mcMatch && loaderMatch;
+            });
+          }
+
+          if (!targetVer) {
+            const loaderName = activeInstance.loader.toLowerCase();
+            targetVer = versionsList.find(v => {
+              return loaderName === 'vanilla' ? true : v.loaders.map(x => x.toLowerCase()).includes(loaderName);
+            });
+          }
         }
-        if (!targetVer) targetVer = versionsList[0];
+        if (!targetVer && versionsList.length > 0) targetVer = versionsList[0];
       }
 
       if (!targetVer) throw new Error('No compatible version found.');

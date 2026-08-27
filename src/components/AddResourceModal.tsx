@@ -94,16 +94,41 @@ export function AddResourceModal({
       if (!res.ok) throw new Error('Failed to load version list.');
       const versions: ModrinthVersion[] = await res.json();
 
-      // 2. Find compatible version
-      const compatible = versions.find(v => {
+      // 2. Find compatible version with smart fallbacks
+      let compatible = versions.find(v => {
         const mcMatch = v.game_versions.includes(mcVersion);
         const loaderName = loader.toLowerCase();
         const loaderMatch = loaderName === 'vanilla' ? true : v.loaders.map(x => x.toLowerCase()).includes(loaderName);
         return mcMatch && loaderMatch;
       });
 
+      // Fallback 1: Match major.minor version (e.g. 1.21 for 1.21.11)
       if (!compatible) {
-        throw new Error(`Incompatible with Minecraft ${mcVersion} (${loader})`);
+        const parts = mcVersion.split('.');
+        const majorMinor = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : mcVersion;
+        compatible = versions.find(v => {
+          const mcMatch = v.game_versions.some(gv => gv.startsWith(majorMinor));
+          const loaderName = loader.toLowerCase();
+          const loaderMatch = loaderName === 'vanilla' ? true : v.loaders.map(x => x.toLowerCase()).includes(loaderName);
+          return mcMatch && loaderMatch;
+        });
+      }
+
+      // Fallback 2: Match loader
+      if (!compatible) {
+        const loaderName = loader.toLowerCase();
+        compatible = versions.find(v => {
+          return loaderName === 'vanilla' ? true : v.loaders.map(x => x.toLowerCase()).includes(loaderName);
+        });
+      }
+
+      // Fallback 3: Latest release
+      if (!compatible && versions.length > 0) {
+        compatible = versions[0];
+      }
+
+      if (!compatible) {
+        throw new Error(`No compatible files found for ${project.title}`);
       }
 
       const file = compatible.files.find(f => f.primary) ?? compatible.files[0];
