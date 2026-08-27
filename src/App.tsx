@@ -70,12 +70,9 @@ function App() {
     try {
       const saved = localStorage.getItem('revival_user');
       if (saved) return JSON.parse(saved);
-      // Persistent default account on 1st run
-      const defaultUser = { username: 'envixyy', displayName: 'envixyy', avatar: 'crown' };
-      localStorage.setItem('revival_user', JSON.stringify(defaultUser));
-      return defaultUser;
+      return null;
     } catch {
-      return { username: 'envixyy', displayName: 'envixyy', avatar: 'crown' };
+      return null;
     }
   });
   const [activeChatFriend, setActiveChatFriend] = useState<Friend | null>(null);
