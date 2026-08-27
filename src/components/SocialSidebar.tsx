@@ -95,12 +95,23 @@ export function SocialSidebar({ user, onStartChat, onSignOut, onNavigateToTab }:
 
   useEffect(() => {
     syncData();
-    const interval = setInterval(() => {
+    const handleNetworkRefresh = () => {
       setFriends(loadFriendsForUser(user.username));
       setCatalog(getNetworkCatalog());
       setRequests(getFriendRequests(user.username));
-    }, 2500);
-    return () => clearInterval(interval);
+    };
+
+    window.addEventListener('revival_network_updated', handleNetworkRefresh);
+    window.addEventListener('revival_friend_requests_updated', handleNetworkRefresh);
+    window.addEventListener('revival_friends_updated', handleNetworkRefresh);
+
+    const interval = setInterval(handleNetworkRefresh, 2500);
+    return () => {
+      window.removeEventListener('revival_network_updated', handleNetworkRefresh);
+      window.removeEventListener('revival_friend_requests_updated', handleNetworkRefresh);
+      window.removeEventListener('revival_friends_updated', handleNetworkRefresh);
+      clearInterval(interval);
+    };
   }, [user]);
 
   useEffect(() => {

@@ -20,6 +20,7 @@ import type { Friend } from './components/SocialSidebar';
 import { safeInvoke } from './utils/tauri';
 import { applyTheme } from './utils/theme';
 import { checkForUpdates, UpdateInfo } from './utils/updater';
+import { initRealtimeNetwork, stopRealtimeNetwork } from './utils/realtimeNetwork';
 
 export interface Instance {
   name: string;
@@ -102,6 +103,15 @@ function App() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      initRealtimeNetwork(currentUser);
+    } else {
+      stopRealtimeNetwork();
+    }
+    return () => stopRealtimeNetwork();
+  }, [currentUser]);
 
   useEffect(() => {
     const fetchConfig = async () => {

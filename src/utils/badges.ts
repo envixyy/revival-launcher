@@ -88,25 +88,22 @@ const DEFAULT_ROLE_MAP: Record<string, BadgeRole[]> = {
   envixyy: ['owner', 'developer', 'admin', 'plus'],
   vix: ['owner', 'developer', 'admin', 'plus'],
   revival: ['owner', 'developer', 'plus'],
-  developer: ['developer'],
-  admin: ['admin'],
-  moderator: ['moderator'],
 };
 
 export function getUnlockedBadges(username: string): Badge[] {
-  if (!username) return [BADGE_DEFS.early_access];
+  if (!username) return [];
   const lower = username.toLowerCase().trim();
   try {
     const saved = localStorage.getItem(`revival_badges_${lower}`);
     if (saved) {
       const roles: BadgeRole[] = JSON.parse(saved);
-      if (Array.isArray(roles) && roles.length > 0) {
+      if (Array.isArray(roles)) {
         return roles.map(r => BADGE_DEFS[r]).filter(Boolean);
       }
     }
   } catch {}
 
-  const defaultRoles = DEFAULT_ROLE_MAP[lower] || ['early_access'];
+  const defaultRoles = DEFAULT_ROLE_MAP[lower] || [];
   return defaultRoles.map(r => BADGE_DEFS[r]).filter(Boolean);
 }
 
@@ -118,7 +115,7 @@ export function saveBadgesForUser(username: string, roles: BadgeRole[]) {
 }
 
 export function getBadgesForUser(username: string): Badge[] {
-  if (!username) return [BADGE_DEFS.early_access];
+  if (!username) return [];
   const lower = username.toLowerCase().trim();
   const unlocked = getUnlockedBadges(username);
   const unlockedRoles = unlocked.map(b => b.role);

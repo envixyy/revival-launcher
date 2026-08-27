@@ -120,6 +120,11 @@ export function assignUserRolesByOwner(
     saveNetworkCatalog(catalog);
   }
 
+  try {
+    const { broadcastRoleAssign } = require('./realtimeNetwork');
+    broadcastRoleAssign(adminUsername, targetLower, newRoles);
+  } catch {}
+
   return true;
 }
 
@@ -218,6 +223,13 @@ export function sendFriendRequest(fromUser: string, toUser: string): { success: 
 
   all.push(req);
   localStorage.setItem('revival_friend_requests', JSON.stringify(all));
+
+  // Broadcast friend request over multi-PC network
+  try {
+    const { broadcastFriendRequest } = require('./realtimeNetwork');
+    broadcastFriendRequest(fromLower, toLower, req.id);
+  } catch {}
+
   return { success: true, message: `Friend request sent to @${toLower}!` };
 }
 
@@ -263,6 +275,12 @@ export function respondToFriendRequest(reqId: string, accept: boolean): boolean 
       });
       saveFriendsForUser(userA, friendsA);
     }
+
+    // Broadcast acceptance over multi-PC network
+    try {
+      const { broadcastFriendResponse } = require('./realtimeNetwork');
+      broadcastFriendResponse(userB, userA, reqId, true);
+    } catch {}
   }
 
   return true;

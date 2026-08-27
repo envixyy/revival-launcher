@@ -45,8 +45,16 @@ export function FriendsTab({ user, onStartChat }: FriendsTabProps) {
 
   useEffect(() => {
     refreshData();
+    window.addEventListener('revival_network_updated', refreshData);
+    window.addEventListener('revival_friend_requests_updated', refreshData);
+    window.addEventListener('revival_friends_updated', refreshData);
     const interval = setInterval(refreshData, 2000);
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener('revival_network_updated', refreshData);
+      window.removeEventListener('revival_friend_requests_updated', refreshData);
+      window.removeEventListener('revival_friends_updated', refreshData);
+      clearInterval(interval);
+    };
   }, []);
 
   const handleAddFriend = (target: CatalogUser | { username: string; displayName: string; avatar: string }) => {

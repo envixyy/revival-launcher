@@ -6,6 +6,7 @@ import { getSubscription } from '../utils/subscription';
 import { UserAvatar } from './UserAvatar';
 import { BadgePill } from './BadgePill';
 import { UserProfileModal } from './UserProfileModal';
+import { broadcastChatMessage } from '../utils/realtimeNetwork';
 
 interface Message {
   id: string;
@@ -73,9 +74,16 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
     setTimeout(() => inputRef.current?.focus(), 50);
   }, [friend.username, myUsername]);
 
-  // Live sync: poll localStorage every 1.5s for new messages from the other user
+  // Live sync: poll localStorage & listen to multi-PC network events for new messages
   useEffect(() => {
     const chatKey = getChatKey(myUsername, friend.username);
+
+    const handleNetworkChat = (e: any) => {
+      if (e.detail?.chatKey === chatKey) {
+        setMessages(loadMessages(myUsername, friend.username));
+      }
+    };
+    window.addEventListener('revival_chat_updated', handleNetworkChat as any);
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === chatKey) {
@@ -95,6 +103,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
     }, 1500);
 
     return () => {
+      window.removeEventListener('revival_chat_updated', handleNetworkChat as any);
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
@@ -120,6 +129,7 @@ export function ChatOverlay({ friend, myUsername, onClose }: ChatOverlayProps) {
     const updated = [...messages, newMsg];
     setMessages(updated);
     saveMessages(myUsername, friend.username, updated);
+    broadcastChatMessage(myUsername, friend.username, newMsg);
     setInputText('');
   };
 
