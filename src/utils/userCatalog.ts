@@ -60,7 +60,7 @@ export function saveNetworkCatalog(catalog: CatalogUser[]): void {
   localStorage.setItem('revival_user_catalog', JSON.stringify(catalog));
 }
 
-export function registerUserInCatalog(user: { username: string; displayName: string; avatar: string }): CatalogUser {
+export function registerUserInCatalog(user: { username: string; displayName: string; avatar: string; status?: string; activity?: string }): CatalogUser {
   const catalog = getNetworkCatalog();
   const lower = user.username.toLowerCase().trim();
   const existingIdx = catalog.findIndex(u => u.username.toLowerCase() === lower);
@@ -71,8 +71,8 @@ export function registerUserInCatalog(user: { username: string; displayName: str
     username: lower,
     displayName: user.displayName || user.username,
     avatar: user.avatar || 'crown',
-    status: localStorage.getItem('revival_user_status') || 'Exploring Revival Launcher',
-    activity: 'In Launcher Lobby',
+    status: user.status || (existingIdx >= 0 ? catalog[existingIdx].status : 'Exploring Revival Launcher'),
+    activity: user.activity || (existingIdx >= 0 ? catalog[existingIdx].activity : 'In Launcher Lobby'),
     isOnline: true,
     joinedAt: existingIdx >= 0 ? catalog[existingIdx].joinedAt : Date.now(),
     roles: existingRoles,

@@ -1,18 +1,23 @@
 /**
- * Revival Network — Multi-PC Realtime Synchronization Engine
+ * Revival Network — Multi-PC Realtime Synchronization Engine (WebSocket + HTTP Sync)
  *
  * Connects Revival Launcher instances across different PCs over the internet
  * for real-time user discovery, friend requests, online status, direct messaging,
- * and owner role sync using low-latency HTTP SSE pub/sub.
+ * and owner role sync using WebSocket + HTTP polling fallback.
  */
 
 import { registerUserInCatalog, saveFriendsForUser, loadFriendsForUser, FriendRequest } from './userCatalog';
 import { saveBadgesForUser, BadgeRole } from './badges';
 
-const NTFY_TOPIC = 'https://ntfy.sh/revival_launcher_network_v2';
+const NTFY_TOPIC = 'revival_launcher_network_v2';
+const WS_URL = `wss://ntfy.sh/${NTFY_TOPIC}/ws`;
+const HTTP_URL = `https://ntfy.sh/${NTFY_TOPIC}`;
+
 let activeUsername: string | null = null;
 let heartbeatTimer: any = null;
-let eventSource: EventSource | null = null;
+let pollTimer: any = null;
+let ws: WebSocket | null = null;
+const processedEventIds = new Set<string>();
 
 export interface RealtimeEvent {
   type: 'PRESENCE' | 'FRIEND_REQUEST' | 'FRIEND_RESPONSE' | 'CHAT_MESSAGE' | 'ROLE_ASSIGN';
@@ -31,45 +36,26 @@ export function initRealtimeNetwork(user: { username: string; displayName: strin
   }
 
   const username = user.username.toLowerCase().trim();
-  if (activeUsername === username && eventSource) return;
+  if (activeUsername === username && ws && ws.readyState === WebSocket.OPEN) return;
 
   stopRealtimeNetwork();
   activeUsername = username;
 
-  // 1. Register local user and send initial presence heartbeat
+  // 1. Send initial presence heartbeat
   broadcastPresence(user);
 
-  // 2. Start periodic heartbeat every 20 seconds
+  // 2. Start periodic presence heartbeat every 15 seconds
   heartbeatTimer = setInterval(() => {
     broadcastPresence(user);
-  }, 20000);
+  }, 15000);
 
-  // 3. Connect to SSE real-time stream
-  try {
-    eventSource = new EventSource(`${NTFY_TOPIC}/json`);
+  // 3. Connect Native WebSocket for low-latency multi-PC sync
+  connectWebSocket(username);
 
-    eventSource.onmessage = (event) => {
-      try {
-        const raw = JSON.parse(event.data);
-        if (raw.event !== 'message' || !raw.message) return;
-        const evt: RealtimeEvent = JSON.parse(raw.message);
-        if (!evt || !evt.type || !evt.sender) return;
-
-        // Ignore messages sent by self
-        if (evt.sender.toLowerCase().trim() === username) return;
-
-        handleIncomingEvent(username, evt);
-      } catch (err) {
-        // Silently handle parse noise
-      }
-    };
-
-    eventSource.onerror = () => {
-      // Reconnect handled automatically by EventSource
-    };
-  } catch (err) {
-    console.warn('Realtime network stream connection warning:', err);
-  }
+  // 4. HTTP Polling Fallback every 3 seconds to catch any missed messages across firewalls
+  pollTimer = setInterval(() => {
+    pollHttpEvents(username);
+  }, 3000);
 }
 
 /**
@@ -80,11 +66,106 @@ export function stopRealtimeNetwork() {
     clearInterval(heartbeatTimer);
     heartbeatTimer = null;
   }
-  if (eventSource) {
-    eventSource.close();
-    eventSource = null;
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+  if (ws) {
+    try { ws.close(); } catch {}
+    ws = null;
   }
   activeUsername = null;
+}
+
+/**
+ * Connect to WebSocket relay
+ */
+function connectWebSocket(username: string) {
+  try {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      // Refresh presence on connect
+      const savedUser = localStorage.getItem('revival_user');
+      if (savedUser) {
+        try { broadcastPresence(JSON.parse(savedUser)); } catch {}
+      }
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const raw = JSON.parse(event.data);
+        if (raw.event !== 'message' || !raw.message) return;
+        
+        // Prevent duplicate processing
+        if (raw.id && processedEventIds.has(raw.id)) return;
+        if (raw.id) {
+          processedEventIds.add(raw.id);
+          if (processedEventIds.size > 200) {
+            const first = processedEventIds.values().next().value;
+            if (first) processedEventIds.delete(first);
+          }
+        }
+
+        const evt: RealtimeEvent = typeof raw.message === 'string' ? JSON.parse(raw.message) : raw.message;
+        if (!evt || !evt.type || !evt.sender) return;
+
+        // Ignore messages sent by self
+        if (evt.sender.toLowerCase().trim() === username) return;
+
+        handleIncomingEvent(username, evt);
+      } catch {}
+    };
+
+    ws.onclose = () => {
+      // Reconnect after 3s if still active
+      if (activeUsername === username) {
+        setTimeout(() => {
+          if (activeUsername === username) connectWebSocket(username);
+        }, 3000);
+      }
+    };
+
+    ws.onerror = () => {
+      try { ws?.close(); } catch {}
+    };
+  } catch (err) {
+    console.warn('WebSocket connection error:', err);
+  }
+}
+
+/**
+ * HTTP Polling fallback for guaranteed message delivery across PCs
+ */
+async function pollHttpEvents(username: string) {
+  try {
+    const res = await fetch(`${HTTP_URL}/json?poll=1&since=all`);
+    if (!res.ok) return;
+    const text = await res.text();
+    const lines = text.split('\n').filter(Boolean);
+
+    for (const line of lines) {
+      try {
+        const raw = JSON.parse(line);
+        if (raw.event !== 'message' || !raw.message) continue;
+
+        if (raw.id && processedEventIds.has(raw.id)) continue;
+        if (raw.id) {
+          processedEventIds.add(raw.id);
+          if (processedEventIds.size > 200) {
+            const first = processedEventIds.values().next().value;
+            if (first) processedEventIds.delete(first);
+          }
+        }
+
+        const evt: RealtimeEvent = typeof raw.message === 'string' ? JSON.parse(raw.message) : raw.message;
+        if (!evt || !evt.type || !evt.sender) continue;
+        if (evt.sender.toLowerCase().trim() === username) continue;
+
+        handleIncomingEvent(username, evt);
+      } catch {}
+    }
+  } catch {}
 }
 
 /**
@@ -98,11 +179,21 @@ async function sendNetworkEvent(type: RealtimeEvent['type'], sender: string, pay
     timestamp: Date.now(),
   };
 
+  const payloadStr = JSON.stringify(evt);
+
+  // Send via WebSocket if ready
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try {
+      ws.send(payloadStr);
+    } catch {}
+  }
+
+  // Also POST via HTTP API for guaranteed delivery
   try {
-    await fetch(NTFY_TOPIC, {
+    await fetch(HTTP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(evt),
+      body: payloadStr,
     });
   } catch (err) {
     console.warn('Failed to broadcast realtime event:', err);
@@ -117,7 +208,13 @@ export function broadcastPresence(user: { username: string; displayName: string;
   const activityMsg = localStorage.getItem('revival_user_activity') || 'In Launcher Lobby';
 
   // Update local catalog
-  registerUserInCatalog(user);
+  registerUserInCatalog({
+    username: user.username,
+    displayName: user.displayName,
+    avatar: user.avatar,
+    status: statusMsg,
+    activity: activityMsg,
+  });
 
   sendNetworkEvent('PRESENCE', user.username, {
     username: user.username.toLowerCase().trim(),
@@ -185,6 +282,8 @@ function handleIncomingEvent(myUsername: string, evt: RealtimeEvent) {
           username: p.username,
           displayName: p.displayName || p.username,
           avatar: p.avatar || 'gamepad',
+          status: p.status || 'Exploring Revival Launcher',
+          activity: p.activity || 'In Launcher Lobby',
         });
         window.dispatchEvent(new CustomEvent('revival_network_updated', { detail: p }));
       }
