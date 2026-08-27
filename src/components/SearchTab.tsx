@@ -319,30 +319,39 @@ export function SearchTab({ activeInstance, onSelectInstance }: SearchTabProps) 
         {/* Filter Toolbar */}
         <div className="flex flex-wrap items-center gap-4 text-[11px]">
           <div className="flex items-center gap-1.5 bg-[#16171d] p-1.5 rounded-xl border border-[#2c2e38]">
-            <span className="text-gray-400 font-extrabold px-1.5 uppercase">Provider:</span>
-            {(['modrinth', 'curseforge', 'ftb', 'technic'] as const).map(p => (
+            <span className="text-gray-400 font-extrabold px-1.5 uppercase text-[10px] tracking-wider">Provider:</span>
+            {[
+              { id: 'modrinth', name: 'Modrinth' },
+              { id: 'curseforge', name: 'CurseForge' },
+              { id: 'ftb', name: 'FTB' },
+              { id: 'technic', name: 'Technic' },
+            ].map(p => (
               <button
-                key={p}
+                key={p.id}
                 type="button"
-                onClick={() => setPlatform(p)}
-                className={`px-3 py-1 rounded-lg font-black capitalize transition-all ${
-                  platform === p ? 'bg-[#facc15] text-black' : 'text-gray-400 hover:text-white'
+                onClick={() => setPlatform(p.id as any)}
+                className={`px-3 py-1 rounded-lg font-extrabold transition-all text-xs ${
+                  platform === p.id
+                    ? 'bg-[#facc15] text-black shadow-sm'
+                    : 'text-gray-400 hover:text-white hover:bg-[#20222a]'
                 }`}
               >
-                {p}
+                {p.name}
               </button>
             ))}
           </div>
 
           <div className="flex items-center gap-1.5 bg-[#16171d] p-1.5 rounded-xl border border-[#2c2e38]">
-            <span className="text-gray-400 font-extrabold px-1.5 uppercase">Type:</span>
+            <span className="text-gray-400 font-extrabold px-1.5 uppercase text-[10px] tracking-wider">Type:</span>
             {(['mod', 'modpack', 'resourcepack', 'shader'] as const).map(t => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setResourceType(t)}
-                className={`px-3 py-1 rounded-lg font-black capitalize transition-all ${
-                  resourceType === t ? 'bg-[#facc15] text-black' : 'text-gray-400 hover:text-white'
+                className={`px-3 py-1 rounded-lg font-extrabold transition-all text-xs ${
+                  resourceType === t
+                    ? 'bg-[#facc15] text-black shadow-sm'
+                    : 'text-gray-400 hover:text-white hover:bg-[#20222a]'
                 }`}
               >
                 {t === 'resourcepack' ? 'Resource Pack' : t === 'modpack' ? 'Modpack' : t === 'shader' ? 'Shader' : 'Mod'}
